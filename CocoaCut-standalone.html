@@ -3093,5 +3093,15 @@ const items=[add('bDrvO','Open from cloud…','Открыть из облака�
 const at=mo.querySelector('[data-c="bSave"]');at?at.after(...items):mo.append(...items);
 })();
 </script>
+<script>
+(()=>{
+const st=document.createElement('style');st.textContent='button{text-align:center}.ic2,button:has(>svg+span){display:inline-flex;align-items:center;justify-content:center;gap:5px}.ic2 svg,button:has(>svg+span)>svg{flex:none}@media (max-width:860px){.mo.ic2:not([hidden]),button.mo:not([hidden]):has(>svg+span){display:inline-flex!important;align-items:center;justify-content:center;gap:5px}}#bImp.impB{display:inline-flex;align-items:center;justify-content:center;background:var(--pri);color:var(--prifg);border-color:var(--pri);padding:7px 16px;border-radius:8px}#bImp.impB svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}#bImp.impB:hover{filter:brightness(.92)}';document.head.appendChild(st);
+const im=document.getElementById('bImp');if(im){im.className='impB';im.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';const t=L('Import media','Импорт медиа');im.title=t;im.setAttribute('aria-label',t)}
+const tm=document.querySelector('#tabs .tmain'),hq=tm&&tm.querySelector('[data-a=quick]'),rv=document.getElementById('mRev');
+if(hq&&rv){const top=document.createElement('button');top.id='mHelp';top.className='mo ic2';top.innerHTML=hq.innerHTML;top.onclick=()=>hq.click();rv.before(top);
+ const tb=document.createElement('button');tb.id='tRev';tb.innerHTML=rv.innerHTML;tb.querySelector('svg')?.removeAttribute('class');tb.onclick=()=>rv.click();hq.before(tb);hq.style.display='none';
+ st.textContent+='#mRev{display:none!important}body.rev #mHelp{display:none!important}body.qOn #mHelp{background:var(--pri);color:var(--prifg)}'}
+})();
+</script>
 </body>
 </html>
