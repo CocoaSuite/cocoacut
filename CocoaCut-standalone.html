@@ -657,7 +657,7 @@ function visibleAt(t){const out=[];for(const tr of P.tracks.filter(x=>x.k==='v')
  for(const c of P.clips){if(c.track!==tr.id||!(t>=c.start&&t<cend(c)))continue;
   if(c.tin?.t==='cross'&&c.tin.d>0&&t<c.start+c.tin.d){const pv=prevOf(c);if(pv)out.push([pv,{k:c.tin.k||'cross',q:clamp((t-c.start)/c.tin.d,0,1)}])}out.push([c,false])}}return out}
 function render(x,k,t){x.setTransform(k,0,0,k,0,0);if(P.alpha)x.clearRect(0,0,P.w,P.h);else{x.fillStyle=P.bg;x.fillRect(0,0,P.w,P.h)}for(const [c,n] of visibleAt(t))drawClip(x,c,t,n)}
-function fitView(){const v=$('view'),bw=v.clientWidth-20,bh=v.clientHeight-20;if(bw<=0||bh<=0)return;const s=Math.min(bw/P.w,bh/P.h);cv.style.width=Math.floor(P.w*s)+'px';cv.style.height=Math.floor(P.h*s)+'px';
+function fitView(){const v=$('view'),pd=MOB?6:20,bw=v.clientWidth-pd,bh=v.clientHeight-pd;if(bw<=0||bh<=0)return;const s=Math.min(bw/P.w,bh/P.h);cv.style.width=Math.floor(P.w*s)+'px';cv.style.height=Math.floor(P.h*s)+'px';
  vk=Math.min(1,P.w*s*Math.min(devicePixelRatio||1,matchMedia('(pointer:coarse)').matches?1.5:2)/P.w);const W=Math.max(2,Math.round(P.w*vk)),H=Math.max(2,Math.round(P.h*vk));if(cv.width!==W||cv.height!==H){cv.width=W;cv.height=H}cv.classList.toggle('alpha',!!P.alpha);dirty=true}
 
 // ---------- on-canvas handles ----------
@@ -3024,7 +3024,7 @@ full.before(b);
 <script>
 (()=>{
 const mo=document.getElementById('more'),sv=document.getElementById('bSave');if(!mo)return;
-const st=document.createElement('style');st.textContent='@media (max-width:700px){#drv .fd span{white-space:normal}#drv .fd{flex-wrap:wrap}#drv .row:last-child{flex-wrap:wrap}}';document.head.appendChild(st);
+const st=document.createElement('style');st.textContent='@media (max-width:860px){#pV{grid-area:1/3;justify-self:start;width:auto}#cUR{grid-area:1/3;justify-self:end}body.vert #view{height:max(44vh,calc(100vh - 300px));height:max(44vh,calc(100dvh - 300px - env(safe-area-inset-bottom,0px)))}}@media (max-width:700px){#drv .fd span{white-space:normal}#drv .fd{flex-wrap:wrap}#drv .row:last-child{flex-wrap:wrap}}';document.head.appendChild(st);
 const add=(c,en,ru)=>{if(!document.getElementById(c))return;const b=document.createElement('button');b.dataset.c=c;b.textContent=L(en,ru);return b};
 const items=[add('bDrvO','Open from cloud…','Открыть из облака…'),add('bDrvS','Upload to cloud…','Загрузить в облако…'),add('bPresets','Creator presets','Пресеты для блогеров'),add('bTko','TikTok overlay','Интерфейс TikTok поверх видео'),add('bPlugins','Plugins…','Плагины…')].filter(Boolean);
 const at=mo.querySelector('[data-c="bSave"]');at?at.after(...items):mo.append(...items);
