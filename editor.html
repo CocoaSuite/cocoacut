@@ -725,11 +725,11 @@ function sync(){const ids=new Set(P.clips.map(c=>c.id));for(const id in EL)if(!i
   const o=getEl(c),el=o.el,r=spd(c);if(el.playbackRate!==r){el.defaultPlaybackRate=r;el.playbackRate=r}if(el.loop!==!!c.loop)el.loop=!!c.loop;const exp=srcT(c,Math.max(T,c.start)),g=playing&&!eb?gainAt(c,T):0;
   if(o.g)o.g.gain.value=g;else el.volume=clamp(g*mvol(),0,1);
   if(playing&&T>=c.start){const ti=m.type==='video'&&!c.loop&&!trk(c.track).hide&&!el.seeking&&el.readyState>=3?P.tracks.findIndex(x=>x.id===c.track):-1;
-   const nw=performance.now(),lead=MOB?.25:0;if(el.paused){if(el.ended||exp>=(el.duration||1e9)-.05){}else if(!(o.cool>nw)||!el.seeking){if(Math.abs(el.currentTime-exp)>.05&&!(o.cool>nw)){el.currentTime=Math.min(exp+lead,(el.duration||1e9)-.05);o.cool=nw+(MOB?1200:300)}el.play().catch(()=>{})}}else if(ti>=0&&ti<mi&&T<cend(c)&&Math.abs(el.currentTime-exp)<1.5){mi=ti;if(!ENG)mc={c,el}}else if(!el.seeking&&!(o.cool>nw)&&Math.abs(el.currentTime-exp)>(MCLK&&MCLK.el===el?1.5:MOB?.5:.3)){el.currentTime=Math.min(exp+(el.currentTime<exp?lead:0),(el.duration||1e9)-.05);o.cool=nw+(MOB?1500:400)}}
+   const nw=performance.now(),lead=MOB?.25:0;if(el.paused){if(el.ended||exp>=(el.duration||1e9)-.05){}else if(!el.seeking){if(Math.abs(el.currentTime-exp)>.05){el.currentTime=Math.min(exp+lead,(el.duration||1e9)-.05);o.cool=nw+(MOB?1200:300)}el.play().catch(()=>{})}}else if(ti>=0&&ti<mi&&T<cend(c)&&Math.abs(el.currentTime-exp)<1.5){mi=ti;if(!ENG)mc={c,el}}else if(!el.seeking&&!(o.cool>nw)&&Math.abs(el.currentTime-exp)>(MCLK&&MCLK.el===el?1.5:MOB?.5:.3)){el.currentTime=Math.min(exp+(el.currentTime<exp?lead:0),(el.duration||1e9)-.05);o.cool=nw+(MOB?1500:400)}}
   else{if(playing&&!MOB&&!o.warm&&el.readyState>=2){o.warm=1;el.play().then(()=>{if(!playing||T<c.start-.04)el.pause()}).catch(()=>{});continue}if(!el.paused)el.pause();if(!el.seeking&&el.paused&&Math.abs(el.currentTime-exp)>.4/P.fps)el.currentTime=Math.min(exp+.001,Math.max(0,(el.duration||1e9)-.001))}}MCLK=playing?mc:null}
 function play(){if(playing)return stop();ensureAC();if(T>=totalDur()-.01)T=0;playing=true;playT0=T;playS=performance.now();engStart();$('bPlay').innerHTML=ICO.pause;$('bPlay').setAttribute('aria-label','Pause')}
 function stop(){playing=false;engStop();for(const id in EL)EL[id].el.pause();T=fq(T);$('bPlay').innerHTML=ICO.play;$('bPlay').setAttribute('aria-label','Play');dirty=true}
-function seek(t){T=clamp(t,0,Math.max(totalDur(),0));if(playing){playT0=T;playS=performance.now();MCLK=null;if(ENG)engStart();for(const id in EL){const c=clipBy(id);if(c&&T>=c.start&&T<cend(c))EL[id].el.currentTime=srcT(c,T)}}dirty=true}
+function seek(t){T=clamp(t,0,Math.max(totalDur(),0));for(const id in EL)EL[id].cool=0;if(playing){playT0=T;playS=performance.now();MCLK=null;if(ENG)engStart();for(const id in EL){const c=clipBy(id);if(c&&T>=c.start&&T<cend(c))EL[id].el.currentTime=srcT(c,T)}}dirty=true}
 const fmt=t=>{t=Math.max(0,t);const m=Math.floor(t/60),s=Math.floor(t%60),f=Math.floor((t%1)*P.fps+1e-6);return String(m).padStart(2,'0')+':'+String(s).padStart(2,'0')+'.'+String(f).padStart(2,'0')};
 function tick(){requestAnimationFrame(tick);if(exporting)return;
  if(playing){let t=playT0+(performance.now()-playS)/1000;const k=MCLK;if(ENG&&AC){if(AC.state!=='running')ENG.stale=1;else if(ENG.stale){T=t;engStart()}else t=Math.max(T,ENG.t0+Math.max(0,AC.currentTime-ENG.acT0))}else if(k&&!k.el.paused&&!k.el.seeking&&clipBy(k.c.id)){const mt=k.c.start+(k.el.currentTime-k.c.in)/spd(k.c);if(mt>=k.c.start-.05&&mt<cend(k.c)&&Math.abs(mt-t)<1.5){t=Math.max(T,mt);playT0=t;playS=performance.now()}}T=t;const D=totalDur();if(T>=D){T=D;stop()}const vw=(tl.clientWidth-HEAD)/pps;if(T>sx+vw*.92||T<sx)sx=Math.max(0,T-vw*.1);dirty=true}
@@ -1412,10 +1412,10 @@ async function pxMake(m){const X=PX[m.id];if(!X||!med(m.id))return;
   await new Promise((res,rej)=>{let busy=0;const done=()=>{clearInterval(iv);res()};
    const cb=(now,md)=>{if(!med(m.id)){v.pause();return res()}g.drawImage(v,0,0,w,h);const t=md.mediaTime;busy++;cv.toBlob(b=>{busy--;if(b)fr.push([t,b])},'image/jpeg',.72);
     const pc=Math.floor(t/m.dur*10);if(pc!==shown){shown=pc;PXS[m.id]='preparing preview '+pc*10+'%';renderBin()}if(!v.ended)v.requestVideoFrameCallback(cb)};
-   v.requestVideoFrameCallback(cb);v.onended=()=>{const w8=()=>busy?setTimeout(w8,50):done();w8()};v.onerror=()=>rej(new Error('decode'));
-   const iv=setInterval(()=>{if(!med(m.id)){v.pause();done();return}if(playing||exporting){if(!v.paused)v.pause()}else if(v.paused&&!v.ended)v.play().catch(()=>{})},250);
+   v.requestVideoFrameCallback(cb);v.onended=()=>{const w8=()=>busy?setTimeout(w8,50):done();w8()};v.onerror=()=>{if(typeof off==='undefined'||(off==null&&!rl))rej(new Error('decode'))};
+   let off=null,rl=0;const iv=setInterval(()=>{if(!med(m.id)){v.pause();done();return}if(rl)return;if(playing||exporting){if(off==null){off=v.currentTime;v.pause();v.removeAttribute('src');v.load()}}else if(off!=null){rl=1;const at=off;v.src=URLS[m.id];once(v,'loadeddata',20000).then(()=>{v.currentTime=at;return once(v,'seeked',8000)}).then(()=>{off=null;rl=0;v.requestVideoFrameCallback(cb);v.play().catch(()=>{})}).catch(()=>{v.onerror?.()})}else if(v.paused&&!v.ended)v.play().catch(()=>{})},250);
    v.play().catch(()=>{})});
-  fr.sort((a,b)=>a[0]-b[0]);X.t=fr.map(f=>f[0]);X.f=fr.map(f=>f[1]);X.ready=X.f.length>0;PXS[m.id]=X.ready?'fast preview':'';renderBin();
+  fr.sort((a,b)=>a[0]-b[0]);for(let i=fr.length-1;i>0;i--)if(fr[i][0]-fr[i-1][0]<.002)fr.splice(i,1);X.t=fr.map(f=>f[0]);X.f=fr.map(f=>f[1]);X.ready=X.f.length>0;PXS[m.id]=X.ready?'fast preview':'';renderBin();
   if(X.ready){idbPut('blobs','px:'+m.id,{t:Float64Array.from(X.t),f:X.f}).catch(()=>{});await pxFill(m,X)}}
  catch(e){PXS[m.id]='';delete PX[m.id]}finally{v.removeAttribute('src');v.load();v.remove()}}
 // ---------- transition library + drag and drop ----------
@@ -2565,7 +2565,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.4.5';
+const APP_VER='1.4.6';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
