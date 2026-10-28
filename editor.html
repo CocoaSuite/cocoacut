@@ -400,6 +400,8 @@ body .rv output{position:absolute;right:10px;top:50%;transform:translateY(-50%);
 <div id="drop" hidden>Drop video, sound or images to import</div>
 <div id="toast" role="status"></div>
 <script>
+var DLOG={},EXLOG=[];function dlog(k,t){(DLOG[k]=DLOG[k]||[]).push(t);if(DLOG[k].length>12)DLOG[k].shift()}
+
 'use strict';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),uid=()=>Math.random().toString(36).slice(2,10),wait=ms=>new Promise(r=>setTimeout(r,ms));
 const esc=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
@@ -981,7 +983,7 @@ function mux(o){const E=WM.el,u=WM.u,all=o.video.map(v=>({...v,tr:1}));if(o.audi
  return new Blob([head,E(0x18538067,[info,E(0x1654AE6B,trs),...clusters])],{type:'video/webm'})}
 async function readyEl(el){if(el.readyState>=2)return;await once(el,'loadeddata',10000).catch(()=>{})}
 async function seekAll(t){const ps=[];for(const [c] of visibleAt(t)){const m=c.media&&med(c.media);if(!m||m.type!=='video')continue;const el=getEl(c).el;
-  ps.push((async()=>{await readyEl(el);const exp=Math.min(srcT(c,t)+(window.SEEKEPS??.001),Math.max(0,(el.duration||1e9)-.001));if(Math.abs(el.currentTime-exp)>1e-4||el.seeking){const fr=el.requestVideoFrameCallback?new Promise(r=>el.requestVideoFrameCallback(()=>r())):null;const p=once(el,'seeked',5000).catch(()=>{});el.currentTime=exp;await p;if(fr)await Promise.race([fr,wait(100)])}})())}
+  ps.push((async()=>{const w0=performance.now();await readyEl(el);if(el.readyState<2)EXLOG.push(t.toFixed(2)+'s '+(m.name||'')+' not loaded (state '+el.readyState+'/'+el.networkState+(el.error?' err '+el.error.code:'')+')');const exp=Math.min(srcT(c,t)+(window.SEEKEPS??.001),Math.max(0,(el.duration||1e9)-.001));if(Math.abs(el.currentTime-exp)>1e-4||el.seeking){const fr=el.requestVideoFrameCallback?new Promise(r=>el.requestVideoFrameCallback(()=>r())):null;const p=once(el,'seeked',5000).catch(()=>{EXLOG.push(t.toFixed(2)+'s '+(m.name||'')+' seek timeout');if(EXLOG.length>20)EXLOG.shift()});el.currentTime=exp;await p;if(fr)await Promise.race([fr,wait(100)])}})())}
  await Promise.all(ps)}
 let cancelExp=false;
 async function pickAvc(W,H,br,fps){for(const codec of ['avc1.640033','avc1.640028','avc1.4d0033','avc1.4d0028','avc1.42001f']){try{const s=await VideoEncoder.isConfigSupported({codec,width:W,height:H,bitrate:br,framerate:fps,avc:{format:'avc'}});if(s.supported)return{codec,id:'avc'}}catch(e){}}return null}
@@ -1416,7 +1418,7 @@ async function pxMake(m){const X=PX[m.id];if(!X||!med(m.id))return;
    v.play().catch(()=>{})});
   fr.sort((a,b)=>a[0]-b[0]);X.t=fr.map(f=>f[0]);X.f=fr.map(f=>f[1]);X.ready=X.f.length>0;PXS[m.id]=X.ready?'fast preview':'';renderBin();
   if(X.ready){idbPut('blobs','px:'+m.id,{t:Float64Array.from(X.t),f:X.f}).catch(()=>{});await pxFill(m,X)}}
- catch(e){PXS[m.id]='';delete PX[m.id]}finally{v.removeAttribute('src');v.load()}}
+ catch(e){dlog(m.id,'preview failed: '+(e.message||e.name||e));PXS[m.id]='';delete PX[m.id]}finally{v.removeAttribute('src');v.load()}}
 // ---------- transition library + drag and drop ----------
 let DND=null,binTab='media';
 function binShow(t){binTab=t;for(const b of document.querySelectorAll('.btabs button'))b.classList.toggle('on',b.dataset.bt===t);$('binList').hidden=t!=='media';$('bText').hidden=t!=='media';$('bImp').hidden=t!=='media';for(const k of ['tr','tx','fx','fl'])$(k+'Lib').hidden=t!==k;if(t==='tr')drawTiles();else if(t!=='media')drawLib(t)}
@@ -2564,7 +2566,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.4.8';
+const APP_VER='1.4.9';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
@@ -3117,10 +3119,10 @@ const str=(v,o)=>String.fromCharCode(v.getUint8(o),v.getUint8(o+1),v.getUint8(o+
 function kids(v,s,e){const out=[];let o=s;while(o+8<=e){let n=v.getUint32(o),h=8;const t=str(v,o+4);if(n===1){n=Number(v.getBigUint64(o+8));h=16}else if(n===0)n=e-o;if(n<h||o+n>e)break;out.push({t,s:o+h,e:o+n});o+=n}return out}
 const find=(v,s,e,t)=>kids(v,s,e).find(k=>k.t===t);
 const path=(v,b,ts)=>{let c=b;for(const t of ts){c=c&&find(v,c.s,c.e,t);if(!c)return null}return c};
-async function isoAudio(blob,ctx){
- const h=await rd(blob,0,8);if(str(h,4)!=='ftyp')return null;
+async function isoAudio(blob,ctx){window.__isoWhy='';const why=w=>{window.__isoWhy=w;return null};
+ const h=await rd(blob,0,8);if(str(h,4)!=='ftyp')return why('not mp4/mov');
  let o=0,moov=null;while(o<blob.size){const v=await rd(blob,o,o+16);let n=v.getUint32(0),hd=8;const t=str(v,4);if(n===1){n=Number(v.getBigUint64(8));hd=16}else if(n===0)n=blob.size-o;if(n<8)break;if(t==='moov'){moov={o,n};break}o+=n}
- if(!moov||moov.n>64e6)return null;
+ if(!moov||moov.n>64e6)return why('no moov');
  const v=await rd(blob,moov.o,moov.o+moov.n),root={s:8,e:moov.n};
  for(const tk of kids(v,root.s,root.e).filter(k=>k.t==='trak')){
   const hd=path(v,tk,['mdia','hdlr']);if(!hd||str(v,hd.s+8)!=='soun')continue;
@@ -3142,12 +3144,13 @@ async function isoAudio(blob,ctx){
   let b=await ctx.decodeAudioData(await new Blob(parts).arrayBuffer());
   const el=path(v,tk,['edts','elst']);if(el){const ev=v.getUint8(el.s),mt=ev?Number(v.getBigInt64(el.s+16)):v.getInt32(el.s+12);const sk=Math.round(mt/scale*b.sampleRate);if(sk>0&&sk<b.length){const nb=ctx.createBuffer(b.numberOfChannels,b.length-sk,b.sampleRate);for(let c=0;c<b.numberOfChannels;c++)nb.copyToChannel(b.getChannelData(c).subarray(sk),c);b=nb}}
   return b}
- return null}
+ return why('no AAC sound track')}
 window.isoAudio=isoAudio;
 const D0=decode;
 decode=function(m){if(m.id in BUF)return BUF[m.id];if(DECP[m.id])return DECP[m.id];
  return DECP[m.id]=(async()=>{const bl=BLOB[m.id],oc=new OfflineAudioContext(2,48000,48000);let b=null;const iso=async()=>{try{return await isoAudio(bl,oc)}catch(e){console.warn('[sound] mp4 reader:',e);return null}};
-  try{if(MOB||bl.size>3e8)b=await iso();if(!b){try{b=await oc.decodeAudioData(await bl.arrayBuffer())}catch(e){b=null}}if(!b&&!(MOB||bl.size>3e8))b=await iso()}catch(e){b=null}
+  const TO=(p,ms,w)=>Promise.race([p,new Promise((_,j)=>setTimeout(()=>j(new Error(w+' timed out')),ms))]);const t0=performance.now();dlog(m.id,'sound: start');
+  try{if(MOB||bl.size>3e8){b=await TO(iso(),45000,'mp4 reader').catch(e=>{dlog(m.id,'sound: '+e.message);return null});dlog(m.id,'sound: mp4 reader '+(b?'ok':'failed ('+(window.__isoWhy||'?')+')'))}if(!b){try{b=await TO(oc.decodeAudioData(await bl.arrayBuffer()),45000,'browser reader');dlog(m.id,'sound: browser reader ok')}catch(e){dlog(m.id,'sound: browser reader failed: '+(e.message||e.name));b=null}}if(!b&&!(MOB||bl.size>3e8))b=await TO(iso(),45000,'mp4 reader').catch(()=>null)}catch(e){dlog(m.id,'sound: error '+e.message);b=null}dlog(m.id,'sound: '+(b?'done':'none')+' in '+Math.round(performance.now()-t0)+' ms')
   if(!b)console.warn('[sound] could not read the sound of',m.name);BUF[m.id]=b;delete DECP[m.id];return b})()};
 })();
 </script>
@@ -3157,8 +3160,8 @@ async function info(){const r=[],q=async c=>{try{return(await c).supported?'yes'
  r.push('CocoaCut '+(typeof APP_VER!=='undefined'?APP_VER:'?')+' · '+navigator.userAgent);
  r.push('phone layout: '+MOB+' · preview quality: '+PQ+' · light preview on: '+pxUse()+' · sound engine: '+(AC?AC.state:'off')+' · open video players: '+Object.keys(EL).length);
  r.push('AAC encoder: '+(window.AudioEncoder?await q(AudioEncoder.isConfigSupported({codec:'mp4a.40.2',sampleRate:48000,numberOfChannels:2,bitrate:160000})):'none')+' · Opus encoder: '+(window.AudioEncoder?await q(AudioEncoder.isConfigSupported({codec:'opus',sampleRate:48000,numberOfChannels:2,bitrate:160000})):'none')+' · H.264 encoder: '+(window.VideoEncoder?await q(VideoEncoder.isConfigSupported({codec:'avc1.640028',width:P.w,height:P.h,bitrate:8e6,framerate:P.fps})):'none')+' · recorder mp4: '+(window.MediaRecorder?MediaRecorder.isTypeSupported('audio/mp4'):'none'));
- r.push('canvas '+P.w+'×'+P.h+' @'+P.fps);
- for(const m of P.media){const X=PX[m.id],b=BUF[m.id];r.push('— '+m.name+' · '+m.type+' '+(m.w||'')+'×'+(m.h||'')+' · '+(m.dur||0).toFixed(2)+'s · '+((BLOB[m.id]?.size||0)/1e6).toFixed(1)+'MB · preview: '+(X?(X.ready?X.t.length+' frames '+X.t[0]?.toFixed(2)+'–'+X.t[X.t.length-1]?.toFixed(2)+'s':'making ('+(PXS[m.id]||'')+')'):'none')+' · sound: '+(b===undefined?'not read yet':b===null?'could not read':b.duration.toFixed(2)+'s'))}
+ r.push('canvas '+P.w+'×'+P.h+' @'+P.fps);if(window.EXLOG)r.push('export: '+EXLOG.join(' | '));
+ for(const m of P.media){const X=PX[m.id],b=BUF[m.id];r.push('— '+m.name+' · '+m.type+' '+(m.w||'')+'×'+(m.h||'')+' · '+(m.dur||0).toFixed(2)+'s · '+((BLOB[m.id]?.size||0)/1e6).toFixed(1)+'MB · preview: '+(X?(X.ready?X.t.length+' frames '+X.t[0]?.toFixed(2)+'–'+X.t[X.t.length-1]?.toFixed(2)+'s':'making ('+(PXS[m.id]||'')+')'):'none')+' · sound: '+(b===undefined?(DECP[m.id]?'reading…':'not read yet'):b===null?'could not read':b.duration.toFixed(2)+'s'));if(DLOG[m.id])r.push('   '+DLOG[m.id].join(' | '))}
  return r.join('\n')}
 const M=document.createElement('div');M.className='modal';M.hidden=true;M.id='diag';M.innerHTML='<div class="box" style="width:min(560px,100%);display:flex;flex-direction:column;gap:10px"><h3 style="margin:0;font-size:15px"></h3><textarea readonly style="height:260px;font:11.5px/1.4 var(--mono);white-space:pre-wrap"></textarea><div class="row" style="display:flex;gap:6px;justify-content:flex-end"><button data-cp class="pri"></button><button data-x></button></div></div>';document.body.appendChild(M);
 M.querySelector('h3').textContent=L('Diagnostics','Диагностика');M.querySelector('[data-cp]').textContent=L('Copy','Копировать');M.querySelector('[data-x]').textContent=L('Close','Закрыть');
