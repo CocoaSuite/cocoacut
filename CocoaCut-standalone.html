@@ -2283,9 +2283,9 @@ setTimeout(async()=>{if(MQ.matches||capBusy||qRec)return;try{const h=await qMode
  await new Promise(r=>(window.requestIdleCallback||setTimeout)(r,{timeout:4000}));if(capBusy||qRec)return;
  QWARM=asrRaw(new Float32Array(8000),()=>{},{model:QVM[md],language:LANG==='ru'?'russian':'english'});await QWARM.catch(()=>{})}catch(e){}QWARM=null},4000);
 (()=>{const m=document.createElement('div');m.id='abModal';m.className='modal';m.hidden=true;m.setAttribute('data-notr','');
- m.innerHTML=`<div class="box abox"><div class="abLogo">${$('tLogo').innerHTML.replace(/id="([^"]+)"/g,'id="$1_ab"').replace(/(href="#|url\(#)([^")]+)/g,'$1$2_ab')}</div><div class="hint abVer">${L('Version 0.9 · preview','Версия 0.9 · предварительная')}</div>
+ m.innerHTML=`<div class="box abox"><div class="abLogo">${$('tLogo').innerHTML.replace(/id="([^"]+)"/g,'id="$1_ab"').replace(/(href="#|url\(#)([^")]+)/g,'$1$2_ab')}</div><div class="hint abVer">${L('Version ','Версия ')+(typeof APP_VER!=='undefined'?APP_VER:'')}</div>
  <p>${L('CocoaCut is a video editor that runs entirely in your browser. Your media never leaves your device.','CocoaCut: видеоредактор, который работает прямо в браузере. Ваши файлы не покидают устройство.')}</p>
- <div class="abGrid"><span>${L('Made by','Разработчик')}</span><span class="ph">${L('To be added','Будет добавлено')}</span><span>${L('Website','Сайт')}</span><span class="ph">${L('To be added','Будет добавлено')}</span><span>${L('Contact','Связь')}</span><span class="ph">${L('To be added','Будет добавлено')}</span><span>${L('Licenses','Лицензии')}</span><span>${L('Speech recognition: Whisper (MIT) via Transformers.js (Apache-2.0). Fonts: Google Fonts (OFL).','Распознавание речи: Whisper (MIT) через Transformers.js (Apache-2.0). Шрифты: Google Fonts (OFL).')}</span></div>
+ <div class="abGrid"><span>${L('Made by','Разработчик')}</span><span>CocoaSuite</span><span>${L('Website','Сайт')}</span><span><a href="https://cocoasuite.github.io/cocoacut/" target="_blank" rel="noopener">cocoasuite.github.io/cocoacut</a></span><span>${L('Contact','Связь')}</span><span><a href="https://github.com/CocoaSuite" target="_blank" rel="noopener">github.com/CocoaSuite</a></span><span>${L('Licenses','Лицензии')}</span><span>${L('Speech recognition: Whisper (MIT) via Transformers.js (Apache-2.0). Fonts: Google Fonts (OFL).','Распознавание речи: Whisper (MIT) через Transformers.js (Apache-2.0). Шрифты: Google Fonts (OFL).')}</span></div>
  <div class="hint">© 2026 CocoaCut</div><div class="row"><button id="abClose" class="pri">${L('Close','Закрыть')}</button></div></div>`;
  document.body.appendChild(m);m.addEventListener('click',e=>{if(e.target===m||e.target.id==='abClose')m.hidden=true});
  const hb=[...document.querySelectorAll('#menus .mn')].find(x=>x.querySelector('[data-act=tour]'))?.querySelector('.dd');if(hb){const b=document.createElement('button');b.dataset.act='about';b.setAttribute('data-notr','');b.textContent=L('About CocoaCut','О CocoaCut');hb.insertBefore(b,hb.querySelector('hr'))}
@@ -2564,7 +2564,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.4.1';
+const APP_VER='1.4.2';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
@@ -3102,7 +3102,7 @@ const at=mo.querySelector('[data-c="bSave"]');at?at.after(...items):mo.append(..
 <script>
 (()=>{
 const st=document.createElement('style');st.textContent='button{text-align:center}.ic2,button:has(>svg+span){display:inline-flex;align-items:center;justify-content:center;gap:5px}.ic2 svg,button:has(>svg+span)>svg{flex:none}@media (max-width:860px){.mo.ic2:not([hidden]),button.mo:not([hidden]):has(>svg+span){display:inline-flex!important;align-items:center;justify-content:center;gap:5px}}#bImp.impB{display:inline-flex;align-items:center;justify-content:center;background:var(--pri);color:var(--prifg);border-color:var(--pri);padding:7px 16px;border-radius:8px}#bImp.impB svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round}#bImp.impB:hover{filter:brightness(.92)}';document.head.appendChild(st);
-const im=document.getElementById('bImp');if(im){im.className='impB';im.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';const t=L('Import media','Импорт медиа');im.title=t;im.setAttribute('aria-label',t)}
+const av=document.querySelector('.abVer');if(av&&typeof APP_VER!=='undefined')av.textContent=L('Version ','Версия ')+APP_VER;const im=document.getElementById('bImp');if(im){im.className='impB';im.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>';const t=L('Import media','Импорт медиа');im.title=t;im.setAttribute('aria-label',t)}
 const tm=document.querySelector('#tabs .tmain'),hq=tm&&tm.querySelector('[data-a=quick]'),rv=document.getElementById('mRev');
 if(hq&&rv){const top=document.createElement('button');top.id='mHelp';top.className='mo ic2';top.innerHTML=hq.innerHTML;top.onclick=()=>hq.click();rv.before(top);
  const tb=document.createElement('button');tb.id='tRev';tb.innerHTML=rv.innerHTML;tb.querySelector('svg')?.removeAttribute('class');tb.onclick=()=>rv.click();hq.before(tb);hq.style.display='none';
