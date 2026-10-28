@@ -400,7 +400,7 @@ body .rv output{position:absolute;right:10px;top:50%;transform:translateY(-50%);
 <div id="drop" hidden>Drop video, sound or images to import</div>
 <div id="toast" role="status"></div>
 <script>
-var DLOG={},EXLOG=[];function dlog(k,t){(DLOG[k]=DLOG[k]||[]).push(t);if(DLOG[k].length>12)DLOG[k].shift()}
+var DLOG={},EXLOG=[],EXV={},EXF={};function dlog(k,t){(DLOG[k]=DLOG[k]||[]).push(t);if(DLOG[k].length>12)DLOG[k].shift()}
 
 'use strict';
 const $=id=>document.getElementById(id),clamp=(v,a,b)=>Math.max(a,Math.min(b,v)),uid=()=>Math.random().toString(36).slice(2,10),wait=ms=>new Promise(r=>setTimeout(r,ms));
@@ -601,7 +601,7 @@ function drawText(x,c,t){if(c.font&&!FL[c.font])ensureFont(c.font);const sz=c.si
 function drawClip(x,c,t,noTr){const m=c.media?med(c.media):null;let src=null,iw=0,ih=0;
  if(c.type!=='text'){if(!m||m.type==='audio')return;
   if(m.type==='image'){src=IMG[m.id];if(!src){loadImg(m).catch(()=>{});return}iw=src.naturalWidth;ih=src.naturalHeight}
-  else{const pq=playing&&!exporting&&pxOn(m),pe=EL[c.id]?.el,pb=pq&&(pxFrame(c,m,t)||(pe&&pe.readyState>=2&&Math.abs(pe.currentTime-srcT(c,Math.max(t,c.start)))<.25?pe:null)||pxFrame(c,m,t,1));if(pb){src=pb;iw=pb.videoWidth||pb.width;ih=pb.videoHeight||pb.height}else if(pq)return;else{src=getEl(c).el;if(src.readyState<2)return;iw=src.videoWidth;ih=src.videoHeight}}
+  else{const pq=playing&&!exporting&&pxOn(m),pe=EL[c.id]?.el,pb=pq&&(pxFrame(c,m,t)||(pe&&pe.readyState>=2&&Math.abs(pe.currentTime-srcT(c,Math.max(t,c.start)))<.25?pe:null)||pxFrame(c,m,t,1));if(pb){src=pb;iw=pb.videoWidth||pb.width;ih=pb.videoHeight||pb.height}else if(pq)return;else if(exporting&&c.id in EXF){src=EXF[c.id];if(!src)return;iw=src.width;ih=src.height}else{src=getEl(c).el;if(src.readyState<2)return;iw=src.videoWidth;ih=src.videoHeight}}
   if(!iw||!ih)return}
  const W=P.w,H=P.h;x.save();let a=c.op??1,post=0,postC='#000',tbl=0,tpx=0;
  const L=[],K0=x.getTransform().a;
@@ -981,10 +981,19 @@ function mux(o){const E=WM.el,u=WM.u,all=o.video.map(v=>({...v,tr:1}));if(o.audi
  vt.push(E(0xE0,[E(0xB0,u(o.W)),E(0xBA,u(o.H)),...(o.alpha?[E(0x53C0,u(1))]:[])]));const trs=[E(0xAE,vt)];
  if(o.audio)trs.push(E(0xAE,[E(0xD7,u(2)),E(0x73C5,u(2)),E(0x83,u(2)),E(0x86,WM.s('A_OPUS')),E(0x9C,u(0)),E(0x63A2,o.audio.desc||OPUSHEAD),E(0x56AA,u(6500000)),E(0x56BB,u(80000000)),E(0xE1,[E(0xB5,WM.f64(48000)),E(0x9F,u(2))])]));
  return new Blob([head,E(0x18538067,[info,E(0x1654AE6B,trs),...clusters])],{type:'video/webm'})}
-async function readyEl(el){if(el.readyState>=2)return;await once(el,'loadeddata',10000).catch(()=>{})}
-async function seekAll(t){const ps=[];for(const [c] of visibleAt(t)){const m=c.media&&med(c.media);if(!m||m.type!=='video')continue;const el=getEl(c).el;
-  ps.push((async()=>{const w0=performance.now();window.EXW=m.name||'';await readyEl(el);if(el.readyState<2)EXLOG.push(t.toFixed(2)+'s '+(m.name||'')+' not loaded (state '+el.readyState+'/'+el.networkState+(el.error?' err '+el.error.code:'')+')');const exp=Math.min(srcT(c,t)+(window.SEEKEPS??.001),Math.max(0,(el.duration||1e9)-.001));if(Math.abs(el.currentTime-exp)>1e-4||el.seeking){let h=0;const fr=el.requestVideoFrameCallback?new Promise(r=>{h=el.requestVideoFrameCallback(()=>{h=0;r()})}):null;const p=once(el,'seeked',5000).catch(()=>{EXLOG.push(t.toFixed(2)+'s '+(m.name||'')+' seek timeout');if(EXLOG.length>20)EXLOG.shift()});el.currentTime=exp;await p;if(fr){await Promise.race([fr,wait(100)]);if(h)el.cancelVideoFrameCallback?.(h)}}})())}
+async function readyEl(el,ms=10000){if(el.readyState<1)await once(el,'loadedmetadata',ms).catch(()=>{})}
+// seek one element; true when it has a frame for the new time. 'loadeddata' fires only once per load, so poll readyState instead
+async function seekTo(el,exp,ms){if(el.error)return false;
+ if(Math.abs(el.currentTime-exp)>1e-4||el.seeking){let h=0,ok=true;const fr=el.requestVideoFrameCallback?new Promise(r=>{h=el.requestVideoFrameCallback(()=>{h=0;r()})}):null;const p=once(el,'seeked',ms).catch(()=>{ok=false});el.currentTime=exp;await p;if(fr){await Promise.race([fr,wait(100)]);if(h)el.cancelVideoFrameCallback?.(h)}if(!ok)return false}
+ for(const t1=performance.now()+Math.min(ms,1500);el.readyState<2&&!el.error&&performance.now()<t1;)await wait(20);return el.readyState>=2}
+async function seekAll(t){const ps=[];for(const [c] of visibleAt(t)){const m=c.media&&med(c.media);if(!m||m.type!=='video')continue;
+  const X=EXV[m.id];if(X){window.EXW=(m.name||'')+' · '+L('decoder','декодер');window.EXE=null;ps.push(VDX.frame(c.id,X,Math.round((srcT(c,t)+(window.SEEKEPS??.001))*1e6)).then(cv=>{EXF[c.id]=cv},e=>{EXLOG.push(t.toFixed(2)+'s '+(m.name||'')+' decoder failed ('+(e.message||e)+'), using the player');delete EXV[m.id];VDX.close(c.id);delete EXF[c.id];return elSeek(c,m,t)}));continue}
+  delete EXF[c.id];ps.push(elSeek(c,m,t))}
  await Promise.all(ps)}
+async function elSeek(c,m,t){const o=getEl(c),el=o.el;const nm=m.name||'',st=()=>'state '+el.readyState+'/'+el.networkState+(el.error?' err '+el.error.code:''),lg=x=>{EXLOG.push(t.toFixed(2)+'s '+nm+' '+x);if(EXLOG.length>20)EXLOG.shift()},ex=()=>Math.min(srcT(c,t)+(window.SEEKEPS??.001),Math.max(0,(el.duration||1e9)-.001));
+   window.EXW=nm;window.EXE=el;await readyEl(el);const bad=o.xbad>t;let ok=await seekTo(el,ex(),bad?800:5000);
+   // stuck player (iOS): reload the same element in place (keeps its sound wiring and media permissions), then retry
+   if(!ok&&!bad){lg('stuck ('+st()+'), reopening');window.EXW=nm+' · '+L('reopening','переоткрываю');const u=URLS[m.id];el.removeAttribute('src');el.load();el.src=u;el.load();await readyEl(el);ok=await seekTo(el,ex(),5000);window.EXW=nm;if(!ok){lg('reopen failed ('+st()+')');o.xbad=t+1}}}
 let cancelExp=false;
 async function pickAvc(W,H,br,fps){for(const codec of ['avc1.640033','avc1.640028','avc1.4d0033','avc1.4d0028','avc1.42001f']){try{const s=await VideoEncoder.isConfigSupported({codec,width:W,height:H,bitrate:br,framerate:fps,avc:{format:'avc'}});if(s.supported)return{codec,id:'avc'}}catch(e){}}return null}
 const M4={u32:n=>[(n>>>24)&255,(n>>>16)&255,(n>>>8)&255,n&255],u16:n=>[(n>>8)&255,n&255],s:t=>[...t].map(c=>c.charCodeAt(0))};
@@ -1019,13 +1028,17 @@ async function runExport(){const D=totalDur();if(!(D>0))return toast('The timeli
   if($('eA').checked){msg('Mixing sound…');const mix=await mixAudio(D);if(!mix)toast(L('No sound could be read from the clips, so the video will be silent.','Не удалось прочитать звук из клипов, видео будет без звука.'));if(mix){audio=(m4&&await encOpus(mix,'mp4a.40.2'))||await encOpus(mix);if(!audio)toast(L('This browser can\'t encode sound; exporting without it','Этот браузер не умеет кодировать звук, видео будет без звука'));else if(m4&&audio.codec==='opus')toast(L('This browser can only save the sound as Opus. Some players, like iPhone Photos, may play it silent. WebM or the Windows app avoid this.','Этот браузер сохраняет звук только в Opus. Некоторые плееры, например «Фото» на iPhone, могут не воспроизвести звук. WebM или приложение для Windows решают это.'))}}
   const pick=m4?await pickAvc(W,H,br,fps):await pickCodec(W,H,br,fps);if(!pick)throw new Error(m4?'This browser can\'t encode H.264 video. Try WebM.':'This browser can\'t encode VP8 or VP9 video');
   for(const id in EL)EL[id].el.pause();msg(tr('Loading fonts…'));await fontsFor(P.clips);
+  // iOS/WebKit: <video> seeking jams after a few hundred frames, so decode MP4/MOV frames with WebCodecs instead
+  for(const k in EXF)delete EXF[k];for(const k in EXV)delete EXV[k];const ua=navigator.userAgent;
+  if((window.EXDEC??(/AppleWebKit/.test(ua)&&!/Chrome\/|Chromium\/|Edg\//.test(ua)))&&window.VideoDecoder&&window.VDX){msg(L('Preparing video…','Готовлю видео…'));for(const m of new Set(P.clips.map(c=>c.media&&med(c.media)).filter(m=>m&&m.type==='video'&&BLOB[m.id]))){try{const X=await VDX.open(BLOB[m.id]);if(X)EXV[m.id]=X;else EXLOG.push((m.name||'')+': no decoder path, using the player')}catch(e){EXLOG.push((m.name||'')+': '+(e.message||e))}}
+   for(const id in EL){const c=clipBy(id);if(c&&EXV[c.media])dropEl(id)}}
   let err=null,vdesc=null;const col=[],alp=[];const mk=(arr,b)=>{const e=new VideoEncoder({output:(ch,meta)=>{const d=meta?.decoderConfig?.description;if(d&&!vdesc)vdesc=d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));const x=new Uint8Array(ch.byteLength);ch.copyTo(x);arr.push({b:x,key:ch.type==='key',ts:ch.timestamp})},error:e=>err=e});e.configure({codec:pick.codec,width:W,height:H,bitrate:b,framerate:fps,...(m4?{avc:{format:'avc'}}:{})});return e};
   const ec=mk(col,br),ea=alpha?mk(alp,Math.max(2e5,br/3)):null,kint=Math.max(1,Math.round(fps*2));
   const c2=document.createElement('canvas');c2.width=W;c2.height=H;const x2=c2.getContext('2d',{willReadFrequently:alpha});const sk=W/P.w;
   const t0=performance.now(),need={};for(const c of P.clips)need[c.id]=cend(c);for(const n of P.clips)if(n.tin?.t==='cross'&&n.tin.d>0){const pv=prevOf(n);if(pv)need[pv.id]=Math.max(need[pv.id],n.start+n.tin.d)}
   // iOS: one decoder per <video>; release clips that are finished or far ahead
-  const rel=t=>{for(const id in EL){const c=clipBy(id),m=c&&c.media&&med(c.media);if(m&&m.type==='video'&&(t>need[id]+.1||c.start>t+2))dropEl(id)}};
-  let lim=6,cf=0,fT=performance.now(),stg=0;wd=setInterval(()=>{const s=(performance.now()-fT)/1000;if(s>3)msg(L('Frame ','Кадр ')+(cf+1)+L(' of ',' из ')+N+' · '+(stg?L('waiting for the encoder (','жду кодировщик (')+(cf+1-col.length)+L(' frames queued)',' кадров в очереди)'):L('waiting for video “','жду видео «')+(window.EXW||'')+L('”','»'))+' · '+Math.round(s)+' s')},1000);
+  const rel=t=>{for(const id in EL){const c=clipBy(id),m=c&&c.media&&med(c.media);if(m&&m.type==='video'&&(t>need[id]+.1||c.start>t+2))dropEl(id)}for(const id of window.VDX?.ids()||[])if(!(t<=need[id]+.1)){VDX.close(id);delete EXF[id]}};
+  let lim=6,cf=0,fT=performance.now(),stg=0;wd=setInterval(()=>{const s=(performance.now()-fT)/1000;if(s>3)msg(L('Frame ','Кадр ')+(cf+1)+L(' of ',' из ')+N+' · '+(stg?L('waiting for the encoder (','жду кодировщик (')+(cf+1-col.length)+L(' frames queued)',' кадров в очереди)'):L('waiting for video “','жду видео «')+(window.EXW||'')+L('”','»')+(window.EXE?' ('+EXE.readyState+'/'+EXE.networkState+(EXE.error?' e'+EXE.error.code:'')+')':''))+' · '+Math.round(s)+' s')},1000);
   for(let f=0;f<N;f++){if(cancelExp)throw new Error('Export cancelled');const t=f/fps;cf=f;fT=performance.now();stg=0;rel(t);await seekAll(t);render(x2,sk,t);
    const key=f%kint===0,ts=Math.round(f*fd),dur=Math.round(fd);
    if(alpha){const [cc,aa]=toI420(x2.getImageData(0,0,W,H).data,W,H),op={format:'I420',codedWidth:W,codedHeight:H,timestamp:ts,duration:dur};const vc=new VideoFrame(cc,op),va=new VideoFrame(aa,op);ec.encode(vc,{keyFrame:key});ea.encode(va,{keyFrame:key});vc.close();va.close()}
@@ -1037,7 +1050,7 @@ async function runExport(){const D=totalDur();if(!(D>0))return toast('The timeli
   if(m4&&!vdesc)throw new Error('The H.264 encoder gave no stream header. Try WebM.');const ext=m4?'mp4':'webm',blob=m4?mux4({W,H,fps,video,vdesc,audio}):mux({W,H,fps,vid:pick.id,video,audio,alpha,D:N/fps});download(blob,safeName()+'.'+ext);
   bar(1);msg(`Done: ${safeName()}.${ext} · ${W} × ${H} · ${(blob.size/1048576).toFixed(1)} MB · ${m4?'H.264':pick.id==='V_VP9'?'VP9':'VP8'}${audio?' + '+(audio.codec==='aac'?'AAC':'Opus')+' sound':''}${alpha?' · transparent':''}`)}
  catch(e){msg((e.message||String(e)));bar(0)}
- finally{clearInterval(wd);lk?.release?.().catch(()=>{});exporting=false;$('eGo').disabled=false;$('eClose').textContent='Close';dirty=true}}
+ finally{clearInterval(wd);window.VDX?.closeAll();for(const k in EXF)delete EXF[k];for(const k in EXV)delete EXV[k];lk?.release?.().catch(()=>{});exporting=false;$('eGo').disabled=false;$('eClose').textContent='Close';dirty=true}}
 
 // ---------- captions (Whisper via transformers.js, in a worker) ----------
 const CAPK=['size','font','bold','color','ow','oc','box','boxC','boxA','ty','x','glow','gc','gb','italic','upper','ls','grad','color2','sh','shc','shb','shx','shy','ex','exc','ain','aout','ad'];
@@ -3149,6 +3162,52 @@ async function isoAudio(blob,ctx){window.__isoWhy='';const why=w=>{window.__isoW
   return b}
  return why('no AAC sound track')}
 window.isoAudio=isoAudio;
+// export frames by decoding MP4/MOV video with WebCodecs (used on WebKit, where seeking <video> stalls)
+const VDS={};
+async function vdOpen(blob){let o=0,moov=null;while(o+8<=blob.size){const v=await rd(blob,o,Math.min(blob.size,o+16));let n=v.getUint32(0);const t=str(v,4);if(n===1)n=Number(v.getBigUint64(8));else if(n===0)n=blob.size-o;if(n<8)return null;if(t==='moov'){moov={o,n};break}o+=n}
+ if(!moov||moov.n>64e6)return null;const v=await rd(blob,moov.o,moov.o+moov.n),root={s:8,e:moov.n},mh=find(v,root.s,root.e,'mvhd'),mts=mh?v.getUint32(mh.s+(v.getUint8(mh.s)?20:12)):1000;
+ for(const tk of kids(v,root.s,root.e).filter(k=>k.t==='trak')){const hd=path(v,tk,['mdia','hdlr']),th=find(v,tk.s,tk.e,'tkhd');if(!hd||!th||str(v,hd.s+8)!=='vide'||!(v.getUint32(th.s)&1))continue;
+  const md=path(v,tk,['mdia','mdhd']),ts=v.getUint32(md.s+(v.getUint8(md.s)?20:12)),st=path(v,tk,['mdia','minf','stbl']);if(!st)continue;const T=n=>find(v,st.s,st.e,n);
+  const sd=T('stsd');if(!sd)continue;const en=sd.s+8,typ=str(v,en+4),ch=kids(v,en+86,en+v.getUint32(en)),hx=x=>x.toString(16).toUpperCase();let codec,cb;
+  if(typ==='avc1'||typ==='avc3'){cb=ch.find(k=>k.t==='avcC');if(!cb)return null;codec='avc1.'+[1,2,3].map(i=>v.getUint8(cb.s+i).toString(16).padStart(2,'0')).join('')}
+  else if(typ==='hvc1'||typ==='hev1'){cb=ch.find(k=>k.t==='hvcC');if(!cb)return null;const b1=v.getUint8(cb.s+1);let f=v.getUint32(cb.s+2),r=0;for(let i=0;i<32;i++){r=r*2+(f&1);f>>>=1}const k=[];for(let i=6;i<12;i++)k.push(v.getUint8(cb.s+i));while(k.length&&!k.at(-1))k.pop();
+   codec=typ+'.'+['','A','B','C'][b1>>6]+(b1&31)+'.'+hx(r)+'.'+(b1&32?'H':'L')+v.getUint8(cb.s+12)+k.map(x=>'.'+hx(x)).join('')}
+  else return null;
+  const sz=T('stsz'),sc=T('stsc'),co=T('stco')||T('co64'),tt=T('stts');if(!sz||!sc||!co||!tt)return null;const fix=v.getUint32(sz.s+4),N=v.getUint32(sz.s+8);if(!N)return null;
+  const size=new Uint32Array(N);for(let i=0;i<N;i++)size[i]=fix||v.getUint32(sz.s+12+i*4);
+  const nc=v.getUint32(co.s+4),c64=co.t==='co64',off=new Float64Array(N);{const ns=v.getUint32(sc.s+4);let si=0;for(let r=0;r<ns;r++){const f0=v.getUint32(sc.s+8+r*12)-1,per=v.getUint32(sc.s+12+r*12),e=r+1<ns?v.getUint32(sc.s+20+r*12)-1:nc;for(let c=f0;c<e&&si<N;c++){let a=c64?Number(v.getBigUint64(co.s+8+c*8)):v.getUint32(co.s+8+c*4);for(let j=0;j<per&&si<N;j++,si++){off[si]=a;a+=size[si]}}}}
+  const pt=new Float64Array(N);{const ne=v.getUint32(tt.s+4);let si=0,d=0;for(let e=0;e<ne;e++){const n=v.getUint32(tt.s+8+e*8),du=v.getUint32(tt.s+12+e*8);for(let j=0;j<n&&si<N;j++,si++){pt[si]=d;d+=du}}}
+  const ct=T('ctts');if(ct){const ne=v.getUint32(ct.s+4);let si=0;for(let e=0;e<ne;e++){const n=v.getUint32(ct.s+8+e*8),q=v.getInt32(ct.s+12+e*8);for(let j=0;j<n&&si<N;j++,si++)pt[si]+=q}}
+  let sh=0,dl=0;const el=path(v,tk,['edts','elst']);if(el){const ev=v.getUint8(el.s),ne=v.getUint32(el.s+4),es=ev?20:12;for(let e=0;e<ne;e++){const p=el.s+8+e*es,sdu=ev?Number(v.getBigUint64(p)):v.getUint32(p),mt=ev?Number(v.getBigInt64(p+8)):v.getInt32(p+4);if(mt===-1){dl+=sdu/mts;continue}sh=mt;break}}
+  const pts=new Float64Array(N);for(let i=0;i<N;i++)pts[i]=Math.round(((pt[i]-sh)/ts+dl)*1e6);
+  const ss=T('stss'),key=new Uint8Array(N);let sync=[];if(ss){for(let i=0,n=v.getUint32(ss.s+4);i<n;i++){const k=v.getUint32(ss.s+8+i*4)-1;if(k<N){key[k]=1;sync.push(k)}}}else{key.fill(1);sync=[...Array(N).keys()]}if(!sync.length)return null;
+  const mo=th.s+(v.getUint8(th.s)?52:40),q=i=>Math.round(v.getInt32(mo+i*4)/65536);let mx=[q(0),q(1),q(3),q(4)];if(!(mx[0]*mx[3]-mx[1]*mx[2]))mx=[1,0,0,1];
+  const cw=v.getUint16(en+32),chh=v.getUint16(en+34),cfg={codec,description:new Uint8Array(v.buffer.slice(cb.s,cb.e)),codedWidth:cw,codedHeight:chh,optimizeForLatency:true};
+  // colour tags from 'colr' (as the <video> element would use them); untagged video is limited-range BT.601/709
+  {const cr=ch.find(k=>k.t==='colr'),ty=cr&&str(v,cr.s),P={1:'bt709',5:'bt470bg',6:'smpte170m',9:'bt2020',12:'smpte432'},Tr={1:'bt709',6:'smpte170m',13:'iec61966-2-1',14:'bt709',15:'bt709',16:'pq',18:'hlg'},Mx={0:'rgb',1:'bt709',5:'bt470bg',6:'smpte170m',9:'bt2020-ncl'},sd=Math.min(cw,chh)<720?'smpte170m':'bt709',cs={};
+   if(ty==='nclx'||ty==='nclc'){const a=P[v.getUint16(cr.s+4)],b=Tr[v.getUint16(cr.s+6)],c=Mx[v.getUint16(cr.s+8)];if(a)cs.primaries=a;if(b)cs.transfer=b;if(c)cs.matrix=c;cs.fullRange=ty==='nclx'&&!!(v.getUint8(cr.s+10)&128)}else Object.assign(cs,{primaries:sd,transfer:sd,matrix:sd,fullRange:false});cfg.colorSpace=cs}
+  try{if(!(await VideoDecoder.isConfigSupported(cfg)).supported){delete cfg.colorSpace;if(!(await VideoDecoder.isConfigSupported(cfg)).supported)return null}}catch(e){return null}
+  return{blob,cfg,N,size,off,pts,sp:Float64Array.from(pts).sort(),key,sync,mx,bc:new Map()}}
+ return null}
+async function vdRead(X,i){const B=1<<21,o=X.off[i],n=X.size[i],b=Math.floor(o/B);if(Math.floor((o+n-1)/B)!==b)return new Uint8Array(await X.blob.slice(o,o+n).arrayBuffer());
+ let k=X.bc.get(b);if(!k){k=new Uint8Array(await X.blob.slice(b*B,Math.min(X.blob.size,b*B+B)).arrayBuffer());X.bc.set(b,k);if(X.bc.size>4)X.bc.delete(X.bc.keys().next().value)}return k.subarray(o-b*B,o-b*B+n)}
+function vdStart(D,k){try{if(D.dec&&D.dec.state!=='closed')D.dec.close()}catch(e){}for(const f of D.q)f.close();Object.assign(D,{q:[],next:k,fed:0,got:0,best:-1,done:false,err:null});
+ const g=++D.gen;D.dec=new VideoDecoder({output:f=>{if(g!==D.gen)return f.close();D.got++;D.q.push(f)},error:e=>{if(g===D.gen)D.err=e}});D.dec.configure(D.X.cfg)}
+function vdDraw(D,f){const w=f.displayWidth,h=f.displayHeight,[a,b,c,d]=D.X.mx,xs=[0,w*a,h*c,w*a+h*c],ys=[0,w*b,h*d,w*b+h*d],x0=Math.min(...xs),y0=Math.min(...ys),W=Math.round(Math.max(...xs)-x0),H=Math.round(Math.max(...ys)-y0);
+ if(D.cv.width!==W||D.cv.height!==H){D.cv.width=W;D.cv.height=H}const g=D.g||(D.g=D.cv.getContext('2d'));g.setTransform(a,b,c,d,-x0,-y0);g.drawImage(f,0,0,w,h);g.setTransform(1,0,0,1,0,0)}
+// draw the frame shown at source time tt (µs) into the clip's canvas; decodes forward from the nearest keyframe and only resets on jumps
+async function vdFrame(id,X,tt){const D=VDS[id]||(VDS[id]={X,q:[],gen:0,cv:document.createElement('canvas'),g:null,best:-1,dec:null});const sp=X.sp;
+ let lo=0,hi=sp.length-1;while(lo<hi){const m=(lo+hi+1)>>1;if(sp[m]<=tt)lo=m;else hi=m-1}const tg=sp[lo];if(D.best===tg&&!D.err)return D.cv;
+ let k=X.sync[0];for(const s of X.sync){if(X.pts[s]<=tg)k=s;else break}
+ if(!D.dec||D.err||D.best>tg||k>D.next)vdStart(D,k);
+ const take=()=>{if(D.q.length>1)D.q.sort((a,b)=>a.timestamp-b.timestamp);let f=null;while(D.q.length&&D.q[0].timestamp<=tg){f?.close();f=D.q.shift()}if(f){D.best=f.timestamp;vdDraw(D,f);f.close()}};
+ for(const t0=performance.now();;){take();if(D.err)throw D.err;if(D.best===tg||D.q.length)break;if(performance.now()-t0>8000)throw new Error('decoder stalled');
+  if(D.next<X.N&&D.dec.decodeQueueSize<4&&D.fed-D.got<8){const i=D.next++,data=await vdRead(X,i);if(D.err)continue;D.dec.decode(new EncodedVideoChunk({type:X.key[i]?'key':'delta',timestamp:X.pts[i],data}));D.fed++;continue}
+  if(D.next>=X.N){if(D.done)break;D.done=true;await D.dec.flush().catch(e=>{D.err=D.err||e});continue}
+  await wait(1)}
+ return D.best>=0?D.cv:null}
+function vdClose(id){const D=VDS[id];if(!D)return;D.gen++;try{if(D.dec.state!=='closed')D.dec.close()}catch(e){}for(const f of D.q)f.close();D.q=[];D.cv.width=D.cv.height=0;delete VDS[id]}
+window.VDX={open:vdOpen,frame:vdFrame,close:vdClose,closeAll:()=>{for(const id in VDS)vdClose(id)},ids:()=>Object.keys(VDS)};
 const D0=decode;
 decode=function(m){if(m.id in BUF)return BUF[m.id];if(DECP[m.id])return DECP[m.id];
  return DECP[m.id]=(async()=>{const bl=BLOB[m.id],oc=new OfflineAudioContext(2,48000,48000);let b=null;const iso=async()=>{try{return await isoAudio(bl,oc)}catch(e){console.warn('[sound] mp4 reader:',e);return null}};
