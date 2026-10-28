@@ -961,7 +961,7 @@ async function mixAudio(D,rate=48000,chn=2,onp,only){const len=Math.max(1,Math.c
  onp?.(0,0);return any?await oc.startRendering():null}
 async function encOpus(buf,codec='opus'){const cfg={codec,sampleRate:48000,numberOfChannels:2,bitrate:160000};
  try{if(!window.AudioEncoder||!(await AudioEncoder.isConfigSupported(cfg)).supported)return null}catch(e){return null}
- const out=[];let desc=null,err=null;const enc=new AudioEncoder({output:(ch,meta)=>{const d=meta?.decoderConfig?.description;if(d&&!desc)desc=d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));const x=new Uint8Array(ch.byteLength);ch.copyTo(x);out.push({ts:ch.timestamp,dur:ch.duration,b:x})},error:e=>err=e});
+ const out=[];let desc=null,err=null;const enc=new AudioEncoder({output:(ch,meta)=>{const d=meta?.decoderConfig?.description;if(d&&!desc)desc=d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));let x=new Uint8Array(ch.byteLength);ch.copyTo(x);if(codec!=='opus'&&x.length>7&&x[0]===255&&(x[1]&246)===240)x=x.subarray(x[1]&1?7:9);out.push({ts:ch.timestamp,dur:ch.duration,b:x})},error:e=>err=e});
  enc.configure(cfg);const L=buf.length,c0=buf.getChannelData(0),c1=buf.numberOfChannels>1?buf.getChannelData(1):c0,S=4800;
  for(let i=0;i<L;i+=S){const n=Math.min(S,L-i),d=new Float32Array(n*2);d.set(c0.subarray(i,i+n),0);d.set(c1.subarray(i,i+n),n);
   const ad=new AudioData({format:'f32-planar',sampleRate:48000,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(i/48000*1e6),data:d});enc.encode(ad);ad.close();if(err)throw err;if(enc.encodeQueueSize>16)await wait(1)}
@@ -1014,7 +1014,7 @@ async function runExport(){const D=totalDur();if(!(D>0))return toast('The timeli
  const m4=$('eF').value==='mp4',rs=+$('eR').value||0,rk=rs?rs/Math.min(P.w,P.h):1,W=Math.max(16,Math.round(P.w*rk))&~1,H=Math.max(16,Math.round(P.h*rk))&~1,fps=P.fps,N=Math.max(1,Math.round(D*fps)),br=Math.round(8e6*(+$('eQ').value)*(W*H)/(1920*1080)*(fps/30)**.5),fd=1e6/fps,alpha=!!P.alpha&&!m4;
  const msg=t=>$('eMsg').textContent=t,bar=p=>$('eBar').style.width=(p*100).toFixed(1)+'%';
  try{let audio=null;
-  if($('eA').checked){msg('Mixing sound…');const mix=await mixAudio(D);if(mix){audio=(m4&&await encOpus(mix,'mp4a.40.2'))||await encOpus(mix);if(!audio)toast('This browser can\'t encode sound; exporting without it')}}
+  if($('eA').checked){msg('Mixing sound…');const mix=await mixAudio(D);if(!mix)toast(L('No sound could be read from the clips, so the video will be silent.','Не удалось прочитать звук из клипов, видео будет без звука.'));if(mix){audio=(m4&&await encOpus(mix,'mp4a.40.2'))||await encOpus(mix);if(!audio)toast(L('This browser can\'t encode sound; exporting without it','Этот браузер не умеет кодировать звук, видео будет без звука'));else if(m4&&audio.codec==='opus')toast(L('This browser can only save the sound as Opus. Some players, like iPhone Photos, may play it silent. WebM or the Windows app avoid this.','Этот браузер сохраняет звук только в Opus. Некоторые плееры, например «Фото» на iPhone, могут не воспроизвести звук. WebM или приложение для Windows решают это.'))}}
   const pick=m4?await pickAvc(W,H,br,fps):await pickCodec(W,H,br,fps);if(!pick)throw new Error(m4?'This browser can\'t encode H.264 video. Try WebM.':'This browser can\'t encode VP8 or VP9 video');
   for(const id in EL)EL[id].el.pause();msg(tr('Loading fonts…'));await fontsFor(P.clips);
   let err=null,vdesc=null;const col=[],alp=[];const mk=(arr,b)=>{const e=new VideoEncoder({output:(ch,meta)=>{const d=meta?.decoderConfig?.description;if(d&&!vdesc)vdesc=d instanceof ArrayBuffer?new Uint8Array(d.slice(0)):new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));const x=new Uint8Array(ch.byteLength);ch.copyTo(x);arr.push({b:x,key:ch.type==='key',ts:ch.timestamp})},error:e=>err=e});e.configure({codec:pick.codec,width:W,height:H,bitrate:b,framerate:fps,...(m4?{avc:{format:'avc'}}:{})});return e};
@@ -2565,7 +2565,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.4.4';
+const APP_VER='1.4.5';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
