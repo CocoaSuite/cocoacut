@@ -2899,8 +2899,8 @@ else if(!window.cocoaUpd)addEventListener('beforeunload',e=>{if(unsaved()){e.pre
 })();
 </script>
 <script>
-// Drive keys. g.id = Google web client, g.app/g.sec = Google desktop client, y = Yandex app.
-const DRIVE={g:{id:'',app:'',sec:''},y:{id:'',sec:''}};
+// Drive client IDs. The Windows app keeps its own keys in main.js.
+const DRIVE={g:{id:'602726288571-haf6c4oda6quguskh251vmmlt0aisp3v.apps.googleusercontent.com'},y:{id:'9f2286be2dcd4567a9d7f0968d654dd4'}};
 (()=>{
 const DN={g:'Google Drive',y:L('Yandex Disk','Яндекс Диск')},T={},E=window.cocoaDrive;
 async function dFetch(url,o={}){
@@ -2916,7 +2916,7 @@ async function tok(p,force){
  if(!DRIVE[p].id)throw Error(L('Drive isn’t set up in this build yet.','Диск ещё не настроен в этой сборке.'));
  let t=T[p]||(T[p]=await idbGet('kv','drv-'+p).catch(()=>null));
  if(t&&!force&&t.exp>Date.now()+6e4)return t.at;
- t=E?await E.auth(p,{id:DRIVE[p].app||DRIVE[p].id,sec:DRIVE[p].sec},t?.rt||''):await webTok(p);
+ t=E?await E.auth(p,{},t?.rt||''):await webTok(p);
  if(!t?.at)throw Error(L('Sign-in failed','Не удалось войти'));T[p]=t;idbPut('kv','drv-'+p,t);return t.at}
 async function api(p,url,o={},re){const at=await tok(p,re);const r=await dFetch(url,{...o,headers:{...(o.headers||{}),Authorization:(p==='g'?'Bearer ':'OAuth ')+at}});
  if(r.status===401&&!re)return api(p,url,o,1);if(!r.ok&&r.status!==308)throw Error('HTTP '+r.status);return r}
