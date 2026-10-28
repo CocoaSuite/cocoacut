@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="en" data-l="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>CocoaCut: a video editor you can talk to</title>
+<meta name="description" content="CocoaCut is a video editor that understands plain language. Runs in your browser or as one offline file. No account, no uploads.">
+<meta name="theme-color" content="#14100D">
+<link rel="icon" href="data:image/svg+xml,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20viewBox%3D%222%202%2060%2060%22%20fill%3D%22none%22%3E%3Cg%20transform%3D%22translate%286%200%29%22%3E%3Cpath%20d%3D%22M48%2010C43.5%205.9%2038.5%204%2032%204C16.5%204%204%2016.5%204%2032C4%2047.5%2016.5%2060%2032%2060C38.5%2060%2043.5%2058.1%2048%2054L40%2044C37.8%2046%2035.3%2047%2032%2047C23.7%2047%2017%2040.3%2017%2032C17%2023.7%2023.7%2017%2032%2017C35.3%2017%2037.8%2018%2040%2020L48%2010Z%22%20fill%3D%22%23693E2C%22%2F%3E%0A%3Cpath%20d%3D%22M28%2023C28%2021.5%2029.6%2020.6%2030.9%2021.4L45.5%2030.4C46.8%2031.2%2046.8%2033.1%2045.5%2033.9L30.9%2042.8C29.6%2043.6%2028%2042.7%2028%2041.2V23Z%22%20fill%3D%22%23693E2C%22%2F%3E%3C%2Fg%3E%3C%2Fsvg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;700&family=Manrope:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+ --night:#14100D;--slab:#121212;--panel:#1a1a1a;--line:#2b2522;--paper:#F4EEE6;--paper2:#EAE1D5;
+ --cream:#F6F1EB;--ink:#1E1612;--cocoa:#693E2C;--caramel:#E8A15C;--mute:#9C8F84;--mute2:#6E6259;
+ --cv:#3d6a9e;--ct:#a8703e;--ca:#3c8a66;
+ --disp:'Unbounded',system-ui,sans-serif;--sans:'Manrope',system-ui,sans-serif;--mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+ --pad:clamp(16px,5vw,72px);
+}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--night);color:var(--cream);font:17px/1.55 var(--sans);overflow-x:hidden}
+a{color:inherit}
+html[data-l=en] [lang=ru],html[data-l=ru] [lang=en]{display:none!important}
+.wrap{max-width:1320px;margin:0 auto;padding:0 var(--pad)}
+.mono{font-family:var(--mono);font-size:12.5px;letter-spacing:.02em}
+
+/* top */
+.top{display:flex;align-items:center;justify-content:space-between;padding-top:22px;padding-bottom:22px}
+.logo{display:block;height:40px;width:auto;margin-left:-4px}
+.logo .m{fill:var(--cocoa)}.logo .w{fill:var(--cream)}
+.top nav{display:flex;align-items:center;gap:26px;font-size:15px}
+.top nav a{text-decoration:none;color:var(--mute)}
+.top nav a:hover{color:var(--cream)}
+.lang{display:flex;border:1px solid var(--line);border-radius:999px;padding:3px}
+.lang button{all:unset;cursor:pointer;font:500 12px var(--mono);padding:4px 9px;border-radius:999px;color:var(--mute)}
+.lang button[aria-pressed=true]{background:var(--cream);color:var(--ink)}
+.lang button:focus-visible{outline:2px solid var(--caramel)}
+
+/* hero */
+.hero{padding-top:clamp(40px,9vh,110px)}
+.kick{display:flex;gap:18px;align-items:center;color:var(--mute);margin-bottom:28px}
+.kick .rec{width:8px;height:8px;border-radius:50%;background:#e2553f;box-shadow:0 0 0 4px rgba(226,85,63,.15)}
+h1{font:700 clamp(40px,7.4vw,112px)/.98 var(--disp);letter-spacing:-.035em;margin:0;max-width:11.5ch}
+html[data-l=ru] h1{font-size:clamp(34px,6.2vw,94px);max-width:13ch}
+h1 em{font-style:normal;color:var(--caramel)}
+.lede{display:grid;grid-template-columns:minmax(0,34rem) auto;gap:40px 64px;align-items:end;margin-top:44px}
+.lede p{margin:0;color:#CFC3B8;font-size:clamp(17px,1.5vw,19px)}
+.lede q{quotes:"“" "”" "‘" "’";color:var(--cream);font-weight:700}
+html[data-l=ru] .lede q{quotes:"«" "»"}
+.cta{display:flex;flex-wrap:wrap;gap:12px 14px;align-items:flex-start}
+.btn{display:inline-flex;align-items:center;gap:10px;text-decoration:none;font:700 16px var(--sans);padding:16px 22px;border-radius:12px;transition:transform .15s,background .15s}
+.btn:active{transform:translateY(1px)}
+.btn.pri{background:var(--cream);color:var(--ink)}
+.btn.pri:hover{background:#fff}
+.btn.sec{border:1.5px solid #3a302a;color:var(--cream)}
+.btn.sec:hover{border-color:var(--mute2);background:#1b1612}
+.btn:focus-visible{outline:2px solid var(--caramel);outline-offset:3px}
+.btn small{display:block;font:400 11.5px var(--mono);color:var(--mute);margin-top:2px}
+.btn .stack{display:flex;flex-direction:column;line-height:1.2}
+.arrow{width:16px;height:16px;flex:none}
+
+/* editor slab */
+.stage{margin-top:clamp(56px,9vh,96px);position:relative}
+.ed{position:relative;background:var(--slab);border:1px solid #262626;border-radius:14px;overflow:hidden;font-family:var(--sans);color:#ececec;box-shadow:0 40px 80px -40px rgba(0,0,0,.8)}
+.ed-top{display:flex;align-items:center;gap:14px;padding:14px 16px;border-bottom:1px solid #262626;background:var(--panel);min-height:58px}
+.ed-tag{font:500 11px var(--mono);text-transform:uppercase;letter-spacing:.08em;color:#8f8f8f;flex:none}
+.ed-q{flex:1;min-width:0;background:#252525;border-radius:9px;padding:9px 13px;font-size:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.caret{display:inline-block;width:2px;height:1.05em;background:var(--caramel);vertical-align:-2px;margin-left:1px;animation:blink 1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+.ed-ok{font:500 12px var(--mono);color:#9fd8b9;flex:none;opacity:0;transform:translateY(4px);transition:.25s}
+.ed-ok.on{opacity:1;transform:none}
+.ed-body{position:relative;padding:0 16px 18px}
+.ruler{display:flex;justify-content:space-between;margin-left:44px;padding:10px 0 8px;color:#6b6b6b;border-bottom:1px solid #222}
+.tr{display:flex;align-items:center;gap:12px;margin-top:10px}
+.tr b{width:32px;flex:none;font:500 11px var(--mono);color:#7a7a7a}
+.lane{position:relative;flex:1;height:46px;display:flex;gap:4px;min-width:0}
+.tr.cap .lane{height:30px;align-items:center}
+.chip{height:22px;border-radius:5px;background:var(--ct);font-size:11.5px;padding:0 8px;display:flex;align-items:center;white-space:nowrap;overflow:hidden;flex:var(--f,1);min-width:0;transition:transform .35s cubic-bezier(.3,1.6,.5,1)}
+.chip:nth-child(3n){opacity:.85}
+.cap.pop .chip{animation:pop .5s cubic-bezier(.3,1.7,.5,1) both;animation-delay:calc(var(--i)*60ms)}
+@keyframes pop{0%{transform:scale(.4);opacity:0}100%{transform:none;opacity:1}}
+.cap.up .chip{transform:translateY(-4px)}
+.clip{position:relative;border-radius:6px;background:var(--cv);overflow:hidden;font-size:12px;padding:7px 9px;white-space:nowrap;text-overflow:ellipsis;flex:var(--f,1);min-width:0;transition:filter .5s,box-shadow .3s}
+.clip span{position:relative;z-index:1}
+.clip i{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.07) 0 52px,transparent 52px 54px);transition:transform .6s}
+.clip.sel{box-shadow:inset 0 0 0 2px #fff}
+.clip.zoom i{transform:scale(1.25)}
+.clip.bw{filter:grayscale(1)}
+.clip .bdg{position:absolute;right:6px;bottom:5px;font:500 10.5px var(--mono);background:rgba(0,0,0,.45);padding:1px 5px;border-radius:4px;opacity:0;transition:.3s}
+.clip.zoom .bdg{opacity:1}
+.clip.a{background:#24392f;padding:0}
+.wave{position:absolute;inset:4px 6px;display:flex;align-items:center;gap:2px}
+.wave s{flex:1;background:#5fb58a;border-radius:1px;height:var(--h);transition:height .5s}
+.ducked .wave s.v{height:calc(var(--h)*.3)}
+.ph{position:absolute;top:0;bottom:0;left:60px;width:2px;background:var(--caramel);animation:ph 14s linear infinite;pointer-events:none}
+.ph:before{content:"";position:absolute;top:0;left:-5px;border:6px solid transparent;border-top-color:var(--caramel)}
+@keyframes ph{from{left:60px}to{left:calc(100% - 18px)}}
+.stage figcaption{display:flex;justify-content:space-between;gap:20px;margin-top:14px;color:var(--mute2)}
+
+/* talk (paper) */
+.paper{background:var(--paper);color:var(--ink);margin-top:clamp(90px,14vh,160px)}
+.talk{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:56px;padding-top:clamp(72px,11vh,130px);padding-bottom:clamp(72px,11vh,130px)}
+h2{font:700 clamp(30px,3.9vw,56px)/1.02 var(--disp);letter-spacing:-.03em;margin:0}
+.talk .side p{color:#5A4A3F;max-width:30rem;margin:26px 0 0}
+.talk .side .mono{display:block;color:var(--cocoa);margin-bottom:22px;text-transform:uppercase;letter-spacing:.1em}
+.edl{list-style:none;margin:0;padding:0;border-top:1.5px solid var(--ink)}
+.edl li{display:grid;grid-template-columns:44px 1fr auto;gap:6px 18px;align-items:baseline;padding:20px 0;border-bottom:1px solid #D6CABB}
+.edl .n{color:#9b8b7d}
+.edl .say{font:500 clamp(18px,1.8vw,24px)/1.25 var(--sans);letter-spacing:-.01em}
+.edl .say:before{content:"“"}.edl .say:after{content:"”"}
+html[data-l=ru] .edl .say:before{content:"«"}html[data-l=ru] .edl .say:after{content:"»"}
+.edl .did{color:var(--cocoa);text-align:right;white-space:nowrap}
+.edl .did:before{content:"→ ";color:#b9a796}
+.note{margin-top:22px;color:#7d6d60;font-size:14.5px}
+
+/* box (dark ledger) */
+.box{padding-top:clamp(80px,12vh,140px);padding-bottom:clamp(40px,6vh,70px)}
+.box header{display:flex;justify-content:space-between;align-items:end;gap:30px;margin-bottom:46px}
+.box header p{margin:0;color:var(--mute);max-width:24rem}
+.ledger{display:grid;grid-template-columns:1fr 1fr;column-gap:64px;border-top:1px solid var(--line)}
+.row{display:grid;grid-template-columns:52px 1fr;gap:4px 16px;padding:26px 0 28px;border-bottom:1px solid var(--line)}
+.row .t{grid-row:span 2;font:500 11px var(--mono);color:var(--night);background:var(--c,#555);border-radius:5px;height:22px;display:grid;place-items:center;margin-top:3px}
+.row h3{margin:0;font:700 19px var(--sans);letter-spacing:-.01em}
+.row p{margin:0;color:var(--mute);font-size:15.5px}
+
+/* promise */
+.promise{padding-top:clamp(70px,10vh,120px);padding-bottom:clamp(70px,10vh,120px)}
+.promise h2{font-size:clamp(34px,5.6vw,84px);max-width:16ch}
+.promise h2 .dim{color:var(--mute2)}
+.facts{display:flex;flex-wrap:wrap;gap:10px 34px;margin-top:34px;color:var(--mute)}
+.facts span:before{content:"";display:inline-block;width:6px;height:6px;background:var(--caramel);border-radius:1px;margin-right:10px;vertical-align:2px}
+
+/* end */
+.end{border-top:1px solid var(--line);padding-top:60px;padding-bottom:40px;display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:40px}
+.end h2{font-size:clamp(28px,3.4vw,46px)}
+.foot{display:flex;flex-wrap:wrap;justify-content:space-between;gap:16px;padding-top:26px;padding-bottom:34px;color:var(--mute2);border-top:1px solid var(--line);margin-top:40px}
+.foot a{color:var(--mute);text-decoration:none}.foot a:hover{color:var(--cream)}
+
+@media (max-width:900px){
+ .lede{grid-template-columns:1fr}
+ .talk{grid-template-columns:1fr;gap:40px}
+ .ledger{grid-template-columns:1fr}
+ .box header{flex-direction:column;align-items:flex-start}
+ .top nav .hide-s{display:none}
+}
+@media (max-width:620px){
+ body{font-size:16px}
+ .logo{height:32px}
+ .ed-top{flex-wrap:wrap;gap:10px}
+ .ed-q{flex-basis:100%;order:3;font-size:14px}
+ .ed-ok{margin-left:auto}
+ .ruler span:nth-child(even){visibility:hidden}
+ .ruler{margin-left:0}
+ .tr b{display:none}
+ .chip:nth-child(n+6){display:none}
+ .clip{font-size:11px}
+ .ph{animation-name:ph2}
+ .edl li{grid-template-columns:34px 1fr}
+ .edl .did{grid-column:2;text-align:left;white-space:normal}
+ .stage figcaption{flex-direction:column;gap:4px}
+ .btn{width:100%;justify-content:center}
+}
+@keyframes ph2{from{left:16px}to{left:calc(100% - 18px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}.ph{display:none}}
+</style>
+</head>
+<body>
+
+<header class="wrap top">
+ <a href="./" aria-label="CocoaCut"><svg class="logo" viewBox="3 3 144 58" fill="none" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="CocoaCut"><path d="M48 10C43.5 5.9 38.5 4 32 4C16.5 4 4 16.5 4 32C4 47.5 16.5 60 32 60C38.5 60 43.5 58.1 48 54L40 44C37.8 46 35.3 47 32 47C23.7 47 17 40.3 17 32C17 23.7 23.7 17 32 17C35.3 17 37.8 18 40 20L48 10Z" class="m"/>
+<path d="M28 23C28 21.5 29.6 20.6 30.9 21.4L45.5 30.4C46.8 31.2 46.8 33.1 45.5 33.9L30.9 42.8C29.6 43.6 28 42.7 28 41.2V23Z" class="m"/>
+<path d="M60.49 40.3C59.05 40.3 57.8167 39.9867 56.79 39.36C55.7633 38.7267 54.9733 37.8467 54.42 36.72C53.8733 35.5933 53.6 34.2867 53.6 32.8C53.6 31.3133 53.8733 30.0067 54.42 28.88C54.9733 27.7533 55.7633 26.8767 56.79 26.25C57.8167 25.6167 59.05 25.3 60.49 25.3C62.15 25.3 63.5333 25.7167 64.64 26.55C65.7467 27.3767 66.5233 28.4933 66.97 29.9L64.54 30.57C64.26 29.63 63.7833 28.8967 63.11 28.37C62.4367 27.8367 61.5633 27.57 60.49 27.57C59.5233 27.57 58.7167 27.7867 58.07 28.22C57.43 28.6533 56.9467 29.2633 56.62 30.05C56.3 30.83 56.1367 31.7467 56.13 32.8C56.13 33.8533 56.29 34.7733 56.61 35.56C56.9367 36.34 57.4233 36.9467 58.07 37.38C58.7167 37.8133 59.5233 38.03 60.49 38.03C61.5633 38.03 62.4367 37.7633 63.11 37.23C63.7833 36.6967 64.26 35.9633 64.54 35.03L66.97 35.7C66.5233 37.1067 65.7467 38.2267 64.64 39.06C63.5333 39.8867 62.15 40.3 60.49 40.3ZM73.3356 40.3C72.2556 40.3 71.3123 40.0567 70.5056 39.57C69.699 39.0833 69.0723 38.4133 68.6256 37.56C68.1856 36.7 67.9656 35.7133 67.9656 34.6C67.9656 33.4667 68.1923 32.4733 68.6456 31.62C69.099 30.7667 69.729 30.1 70.5356 29.62C71.3423 29.14 72.2756 28.9 73.3356 28.9C74.4223 28.9 75.369 29.1433 76.1756 29.63C76.9823 30.1167 77.609 30.79 78.0556 31.65C78.5023 32.5033 78.7256 33.4867 78.7256 34.6C78.7256 35.72 78.499 36.71 78.0456 37.57C77.599 38.4233 76.9723 39.0933 76.1656 39.58C75.359 40.06 74.4156 40.3 73.3356 40.3ZM73.3356 38.04C74.2956 38.04 75.009 37.72 75.4756 37.08C75.9423 36.44 76.1756 35.6133 76.1756 34.6C76.1756 33.5533 75.939 32.72 75.4656 32.1C74.9923 31.4733 74.2823 31.16 73.3356 31.16C72.689 31.16 72.1556 31.3067 71.7356 31.6C71.3223 31.8867 71.0156 32.29 70.8156 32.81C70.6156 33.3233 70.5156 33.92 70.5156 34.6C70.5156 35.6467 70.7523 36.4833 71.2256 37.11C71.7056 37.73 72.409 38.04 73.3356 38.04ZM85.0189 40.3C83.9056 40.3 82.9556 40.0533 82.1689 39.56C81.3822 39.06 80.7789 38.38 80.3589 37.52C79.9456 36.66 79.7356 35.6867 79.7289 34.6C79.7356 33.4933 79.9522 32.5133 80.3789 31.66C80.8122 30.8 81.4256 30.1267 82.2189 29.64C83.0122 29.1467 83.9556 28.9 85.0489 28.9C86.2756 28.9 87.3122 29.21 88.1589 29.83C89.0122 30.4433 89.5689 31.2833 89.8289 32.35L87.4289 33C87.2422 32.42 86.9322 31.97 86.4989 31.65C86.0656 31.3233 85.5722 31.16 85.0189 31.16C84.3922 31.16 83.8756 31.31 83.4689 31.61C83.0622 31.9033 82.7622 32.31 82.5689 32.83C82.3756 33.35 82.2789 33.94 82.2789 34.6C82.2789 35.6267 82.5089 36.4567 82.9689 37.09C83.4289 37.7233 84.1122 38.04 85.0189 38.04C85.6589 38.04 86.1622 37.8933 86.5289 37.6C86.9022 37.3067 87.1822 36.8833 87.3689 36.33L89.8289 36.88C89.4956 37.98 88.9122 38.8267 88.0789 39.42C87.2456 40.0067 86.2256 40.3 85.0189 40.3ZM95.7098 40.3C94.6298 40.3 93.6865 40.0567 92.8798 39.57C92.0732 39.0833 91.4465 38.4133 90.9998 37.56C90.5598 36.7 90.3398 35.7133 90.3398 34.6C90.3398 33.4667 90.5665 32.4733 91.0198 31.62C91.4732 30.7667 92.1032 30.1 92.9098 29.62C93.7165 29.14 94.6498 28.9 95.7098 28.9C96.7965 28.9 97.7432 29.1433 98.5498 29.63C99.3565 30.1167 99.9832 30.79 100.43 31.65C100.877 32.5033 101.1 33.4867 101.1 34.6C101.1 35.72 100.873 36.71 100.42 37.57C99.9732 38.4233 99.3465 39.0933 98.5398 39.58C97.7332 40.06 96.7898 40.3 95.7098 40.3ZM95.7098 38.04C96.6698 38.04 97.3832 37.72 97.8498 37.08C98.3165 36.44 98.5498 35.6133 98.5498 34.6C98.5498 33.5533 98.3132 32.72 97.8398 32.1C97.3665 31.4733 96.6565 31.16 95.7098 31.16C95.0632 31.16 94.5298 31.3067 94.1098 31.6C93.6965 31.8867 93.3898 32.29 93.1898 32.81C92.9898 33.3233 92.8898 33.92 92.8898 34.6C92.8898 35.6467 93.1265 36.4833 93.5998 37.11C94.0798 37.73 94.7832 38.04 95.7098 38.04ZM105.723 40.3C104.943 40.3 104.283 40.1533 103.743 39.86C103.203 39.56 102.793 39.1633 102.513 38.67C102.24 38.1767 102.103 37.6333 102.103 37.04C102.103 36.52 102.19 36.0533 102.363 35.64C102.536 35.22 102.803 34.86 103.163 34.56C103.523 34.2533 103.99 34.0033 104.563 33.81C104.996 33.67 105.503 33.5433 106.083 33.43C106.67 33.3167 107.303 33.2133 107.983 33.12C108.67 33.02 109.386 32.9133 110.133 32.8L109.273 33.29C109.28 32.5433 109.113 31.9933 108.773 31.64C108.433 31.2867 107.86 31.11 107.053 31.11C106.566 31.11 106.096 31.2233 105.643 31.45C105.19 31.6767 104.873 32.0667 104.693 32.62L102.493 31.93C102.76 31.0167 103.266 30.2833 104.013 29.73C104.766 29.1767 105.78 28.9 107.053 28.9C108.013 28.9 108.856 29.0567 109.583 29.37C110.316 29.6833 110.86 30.1967 111.213 30.91C111.406 31.29 111.523 31.68 111.563 32.08C111.603 32.4733 111.623 32.9033 111.623 33.37V40H109.513V37.66L109.863 38.04C109.376 38.82 108.806 39.3933 108.153 39.76C107.506 40.12 106.696 40.3 105.723 40.3ZM106.203 38.38C106.75 38.38 107.216 38.2833 107.603 38.09C107.99 37.8967 108.296 37.66 108.523 37.38C108.756 37.1 108.913 36.8367 108.993 36.59C109.12 36.2833 109.19 35.9333 109.203 35.54C109.223 35.14 109.233 34.8167 109.233 34.57L109.973 34.79C109.246 34.9033 108.623 35.0033 108.103 35.09C107.583 35.1767 107.136 35.26 106.763 35.34C106.39 35.4133 106.06 35.4967 105.773 35.59C105.493 35.69 105.256 35.8067 105.063 35.94C104.87 36.0733 104.72 36.2267 104.613 36.4C104.513 36.5733 104.463 36.7767 104.463 37.01C104.463 37.2767 104.53 37.5133 104.663 37.72C104.796 37.92 104.99 38.08 105.243 38.2C105.503 38.32 105.823 38.38 106.203 38.38Z" class="w"/>
+<path d="M119.717 40.3C118.277 40.3 117.043 39.9867 116.017 39.36C114.99 38.7267 114.2 37.8467 113.647 36.72C113.1 35.5933 112.827 34.2867 112.827 32.8C112.827 31.3133 113.1 30.0067 113.647 28.88C114.2 27.7533 114.99 26.8767 116.017 26.25C117.043 25.6167 118.277 25.3 119.717 25.3C121.377 25.3 122.76 25.7167 123.867 26.55C124.973 27.3767 125.75 28.4933 126.197 29.9L123.767 30.57C123.487 29.63 123.01 28.8967 122.337 28.37C121.663 27.8367 120.79 27.57 119.717 27.57C118.75 27.57 117.943 27.7867 117.297 28.22C116.657 28.6533 116.173 29.2633 115.847 30.05C115.527 30.83 115.363 31.7467 115.357 32.8C115.357 33.8533 115.517 34.7733 115.837 35.56C116.163 36.34 116.65 36.9467 117.297 37.38C117.943 37.8133 118.75 38.03 119.717 38.03C120.79 38.03 121.663 37.7633 122.337 37.23C123.01 36.6967 123.487 35.9633 123.767 35.03L126.197 35.7C125.75 37.1067 124.973 38.2267 123.867 39.06C122.76 39.8867 121.377 40.3 119.717 40.3ZM131.842 40.31C131.042 40.31 130.382 40.1767 129.862 39.91C129.342 39.6433 128.929 39.3033 128.622 38.89C128.316 38.4767 128.089 38.0367 127.942 37.57C127.796 37.1033 127.699 36.6633 127.652 36.25C127.612 35.83 127.592 35.49 127.592 35.23V29.2H130.032V34.4C130.032 34.7333 130.056 35.11 130.102 35.53C130.149 35.9433 130.256 36.3433 130.422 36.73C130.596 37.11 130.849 37.4233 131.182 37.67C131.522 37.9167 131.979 38.04 132.552 38.04C132.859 38.04 133.162 37.99 133.462 37.89C133.762 37.79 134.032 37.62 134.272 37.38C134.519 37.1333 134.716 36.7967 134.862 36.37C135.009 35.9433 135.082 35.4033 135.082 34.75L136.512 35.36C136.512 36.28 136.332 37.1133 135.972 37.86C135.619 38.6067 135.096 39.2033 134.402 39.65C133.709 40.09 132.856 40.31 131.842 40.31ZM135.372 40V36.65H135.082V29.2H137.502V40H135.372ZM146.042 40C145.328 40.1333 144.628 40.19 143.942 40.17C143.262 40.1567 142.652 40.0333 142.112 39.8C141.572 39.56 141.162 39.1833 140.882 38.67C140.635 38.2033 140.505 37.7267 140.492 37.24C140.478 36.7533 140.472 36.2033 140.472 35.59V26.2H142.872V35.45C142.872 35.8833 142.875 36.2633 142.882 36.59C142.895 36.9167 142.965 37.1833 143.092 37.39C143.332 37.79 143.715 38.0133 144.242 38.06C144.768 38.1067 145.368 38.08 146.042 37.98V40ZM138.512 31.09V29.2H146.042V31.09H138.512Z" class="m"/></svg></a>
+ <nav>
+  <a class="hide-s" href="#talk"><span lang="en">How it works</span><span lang="ru">Как это работает</span></a>
+  <a class="hide-s" href="#box"><span lang="en">Features</span><span lang="ru">Что умеет</span></a>
+  <div class="lang" role="group" aria-label="Language"><button data-set="en" aria-pressed="true">EN</button><button data-set="ru" aria-pressed="false">RU</button></div>
+ </nav>
+</header>
+
+<main>
+<section class="wrap hero">
+ <h1><span lang="en">A video editor you can <em>talk&nbsp;to.</em></span><span lang="ru">Видеоредактор, с&nbsp;которым можно <em>поговорить.</em></span></h1>
+ <div class="lede">
+  <p><span lang="en">Type <q>lower the music when I talk</q> and it’s done. Captions, zooms, fades and looks, in plain words. Everything runs on your own computer: no account, no uploads.</span><span lang="ru">Напиши <q>приглушай музыку под голос</q>, и готово. Субтитры, зумы, затухания и цвет обычными словами. Всё работает на твоём компьютере: без аккаунта и без загрузки видео в облако.</span></p>
+  <div class="cta">
+   <a class="btn pri" href="editor.html"><span lang="en">Use in browser</span><span lang="ru">Открыть в браузере</span><svg class="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+   <a class="btn sec" href="CocoaCut-standalone.html" download><span lang="en">Get standalone</span><span lang="ru">Офлайн-версия</span></a>
+  </div>
+ </div>
+
+ <figure class="stage" style="margin-left:0;margin-right:0;margin-bottom:0">
+  <div class="ed" aria-hidden="true">
+   <div class="ed-top"><span class="ed-tag">Helper</span><span class="ed-q"><span id="typed"></span><i class="caret"></i></span><span class="ed-ok" id="ok"></span></div>
+   <div class="ed-body">
+    <div class="ruler mono"><span>00:00</span><span>00:05</span><span>00:10</span><span>00:15</span><span>00:20</span><span>00:25</span><span>00:30</span></div>
+    <div class="tr cap" id="cap"><b>T1</b><div class="lane" id="chips"></div></div>
+    <div class="tr"><b>V1</b><div class="lane"><div class="clip" style="--f:2.2"><i></i><span>intro_beach.mp4</span></div><div class="clip" id="c2" style="--f:3.6"><i></i><span>talking_head.mp4</span><em class="bdg">×1.25</em></div><div class="clip" style="--f:2"><i></i><span>city_broll.mp4</span></div></div></div>
+    <div class="tr"><b>A1</b><div class="lane"><div class="clip a" id="mus" style="--f:1"><div class="wave" id="wave"></div></div></div></div>
+    <div class="ph"></div>
+   </div>
+  </div>
+  <figcaption class="mono"><span lang="en">The Helper reads plain English and Russian. It shows what will change before it changes it.</span><span lang="ru">Помощник понимает русский и английский и показывает, что изменится, до того как менять.</span><span lang="en">Real commands, real results.</span><span lang="ru">Настоящие команды, настоящий результат.</span></figcaption>
+ </figure>
+</section>
+
+<section class="paper" id="talk">
+ <div class="wrap talk">
+  <div class="side">
+   <span class="mono"><span lang="en">Edit list</span><span lang="ru">Монтажный лист</span></span>
+   <h2><span lang="en">Say it the way you’d say it to a friend.</span><span lang="ru">Говори так, как сказал бы другу.</span></h2>
+   <p><span lang="en">No menus to dig through, no keyframes to drag. CocoaCut figures out which clips you mean, makes the change, and lets you undo it with one click if it guessed wrong.</span><span lang="ru">Не надо искать пункт в меню и тянуть ключевые кадры. CocoaCut сам поймёт, о каких клипах речь, внесёт правку, а если ошибся, её можно отменить в один клик.</span></p>
+  </div>
+  <div>
+   <ol class="edl">
+    <li><span class="n mono">001</span><span class="say"><span lang="en">make the captions pop in</span><span lang="ru">пусть субтитры выскакивают</span></span><span class="did mono"><span lang="en">Appear: Pop · 4 captions</span><span lang="ru">Появление: Pop · 4 субтитра</span></span></li>
+    <li><span class="n mono">002</span><span class="say"><span lang="en">move the subtitles up a bit</span><span lang="ru">подними субтитры чуть выше</span></span><span class="did mono"><span lang="en">Move up 4%</span><span lang="ru">Выше на 4%</span></span></li>
+    <li><span class="n mono">003</span><span class="say"><span lang="en">lower the music when I talk</span><span lang="ru">приглушай музыку под голос</span></span><span class="did mono"><span lang="en">Lower under voice</span><span lang="ru">Тише под голосом</span></span></li>
+    <li><span class="n mono">004</span><span class="say"><span lang="en">zoom in on the second clip</span><span lang="ru">приблизь второй клип</span></span><span class="did mono"><span lang="en">Zoom in ×1.25</span><span lang="ru">Зум ×1.25</span></span></li>
+    <li><span class="n mono">005</span><span class="say"><span lang="en">speed up the second clip 2x</span><span lang="ru">ускорь второй клип в 2 раза</span></span><span class="did mono"><span lang="en">Speed 2×</span><span lang="ru">Скорость 2×</span></span></li>
+    <li><span class="n mono">006</span><span class="say"><span lang="en">make the second clip black and white</span><span lang="ru">сделай второй клип чёрно-белым</span></span><span class="did mono"><span lang="en">Black &amp; white</span><span lang="ru">Чёрно-белый</span></span></li>
+   </ol>
+   <p class="note"><span lang="en">Prefer talking? Press the mic and say it out loud.</span><span lang="ru">Лень печатать? Нажми на микрофон и скажи вслух.</span></p>
+  </div>
+ </div>
+</section>
+
+<section class="wrap box" id="box">
+ <header>
+  <h2><span lang="en">What’s on the timeline</span><span lang="ru">Что на таймлайне</span></h2>
+  <p><span lang="en">The parts of editing that eat an evening, done in a sentence or a double-click.</span><span lang="ru">То, на что обычно уходит вечер, делается одной фразой или двойным кликом.</span></p>
+ </header>
+ <div class="ledger">
+  <div class="row" style="--c:var(--ct)"><span class="t">T1</span><h3><span lang="en">Captions from your voice</span><span lang="ru">Субтитры из речи</span></h3><p><span lang="en">Words timed to speech, then styled, animated and moved however you like.</span><span lang="ru">Слова сами встают по таймингу речи. Дальше любой стиль, анимация и место на экране.</span></p></div>
+  <div class="row" style="--c:#5fb58a"><span class="t">A1</span><h3><span lang="en">Music that steps aside</span><span lang="ru">Музыка уступает голосу</span></h3><p><span lang="en">The track dips while someone speaks and comes back in the pauses. Survives every re-edit.</span><span lang="ru">Музыка стихает, пока кто-то говорит, и возвращается в паузах. Не ломается при перемонтаже.</span></p></div>
+  <div class="row" style="--c:var(--caramel)"><span class="t">Aa</span><h3><span lang="en">Your own fonts</span><span lang="ru">Свои шрифты</span></h3><p><span lang="en">Drop in a .ttf or .otf. It travels inside the project, so it opens right on any computer.</span><span lang="ru">Добавь .ttf или .otf. Шрифт сохраняется внутри проекта и откроется на любом компьютере.</span></p></div>
+  <div class="row" style="--c:#cfc3b8"><span class="t">V1</span><h3><span lang="en">Edit on the picture</span><span lang="ru">Правка прямо в кадре</span></h3><p><span lang="en">Double-click any caption in the preview and retype it where it sits.</span><span lang="ru">Дважды кликни по субтитру в превью и исправь текст на месте.</span></p></div>
+  <div class="row" style="--c:#b49be0"><span class="t">AI</span><h3><span lang="en">Cocoa AI, offline</span><span lang="ru">Cocoa AI без интернета</span></h3><p><span lang="en">A small language model for the requests the Helper can’t parse. Downloads once, then runs on your machine.</span><span lang="ru">Небольшая нейросеть для фраз, которые не понял Помощник. Скачивается один раз и работает на твоём компьютере.</span></p></div>
+  <div class="row" style="--c:var(--cv)"><span class="t">EX</span><h3><span lang="en">Straight to a file</span><span lang="ru">Сразу в файл</span></h3><p><span lang="en">Export to WebM from the same window. No render queue, no watermark.</span><span lang="ru">Экспорт в WebM из того же окна. Без очереди рендера и без водяного знака.</span></p></div>
+ </div>
+</section>
+
+<section class="wrap promise">
+ <h2><span lang="en">Your footage never leaves your computer. <span class="dim">Not even to us.</span></span><span lang="ru">Твоё видео не покидает компьютер. <span class="dim">Даже до нас не доходит.</span></span></h2>
+ <div class="facts mono"><span lang="en">No sign-up</span><span lang="ru">Без регистрации</span><span lang="en">No cloud render</span><span lang="ru">Без облачного рендера</span><span lang="en">Works offline</span><span lang="ru">Работает без интернета</span><span lang="en">English &amp; Russian</span><span lang="ru">Русский и английский</span></div>
+</section>
+
+<section class="wrap">
+ <div class="end">
+  <h2><span lang="en">Got a clip waiting?</span><span lang="ru">Есть видео на монтаж?</span></h2>
+  <div class="cta">
+   <a class="btn pri" href="editor.html"><span lang="en">Use in browser</span><span lang="ru">Открыть в браузере</span><svg class="arrow" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M3 8h9M8.5 4l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></a>
+   <a class="btn sec" href="CocoaCut-standalone.html" download><span lang="en">Get standalone</span><span lang="ru">Офлайн-версия</span></a>
+  </div>
+ </div>
+ <footer class="foot mono">
+  <span><span lang="en">CocoaCut is part of Cocoa Suite.</span><span lang="ru">CocoaCut входит в Cocoa Suite.</span></span>
+  <a href="https://github.com/CocoaSuite">github.com/CocoaSuite</a>
+ </footer>
+</section>
+</main>
+
+<script>
+(()=>{
+const H=document.documentElement,B=[...document.querySelectorAll('.lang button')];
+function setL(l){H.dataset.l=l;H.lang=l;B.forEach(b=>b.setAttribute('aria-pressed',b.dataset.set===l));try{localStorage.setItem('cc-site-l',l)}catch(e){}}
+let l0='en';try{l0=localStorage.getItem('cc-site-l')||((navigator.language||'').startsWith('ru')?'ru':'en')}catch(e){}
+setL(l0);B.forEach(b=>b.onclick=()=>setL(b.dataset.set));
+
+const words=['hey','so today','we’re going','to the','old pier','and it’s','freezing','honestly'];
+const chips=document.getElementById('chips');
+words.forEach((w,i)=>{const c=document.createElement('span');c.className='chip';c.style.setProperty('--i',i);c.style.setProperty('--f',(w.length+4)/6);c.textContent=w;chips.appendChild(c)});
+const wave=document.getElementById('wave');let s=7;const rnd=()=>(s=(s*16807)%2147483647)/2147483647;
+const N=Math.max(60,Math.min(140,Math.round(innerWidth/9)));
+for(let i=0;i<N;i++){const b=document.createElement('s'),x=i/N;b.style.setProperty('--h',(28+rnd()*66)+'%');if(x>.27&&x<.72)b.className='v';wave.appendChild(b)}
+
+const cap=document.getElementById('cap'),c2=document.getElementById('c2'),mus=document.getElementById('mus'),typed=document.getElementById('typed'),ok=document.getElementById('ok');
+const steps=[
+ {en:'make the captions pop in',ru:'пусть субтитры выскакивают',okEn:'✓ Appear: Pop · 8 captions',okRu:'✓ Появление: Pop · 8',go:()=>{cap.classList.remove('pop');void cap.offsetWidth;cap.classList.add('pop')}},
+ {en:'lower the music when I talk',ru:'приглушай музыку под голос',okEn:'✓ Lower under voice',okRu:'✓ Тише под голосом',go:()=>mus.classList.add('ducked')},
+ {en:'zoom in on the second clip',ru:'приблизь второй клип',okEn:'✓ Zoom in ×1.25 · 1 video',okRu:'✓ Зум ×1.25 · 1 видео',go:()=>{c2.classList.add('sel','zoom')}},
+ {en:'move the subtitles up a bit',ru:'подними субтитры чуть выше',okEn:'✓ Move up 4% · 8 captions',okRu:'✓ Выше на 4% · 8',go:()=>cap.classList.add('up')},
+ {en:'make the second clip black and white',ru:'сделай второй клип чёрно-белым',okEn:'✓ Black & white · 1 video',okRu:'✓ Чёрно-белый · 1 видео',go:()=>c2.classList.add('bw')}
+];
+const reset=()=>{cap.classList.remove('up');mus.classList.remove('ducked');c2.classList.remove('sel','zoom','bw')};
+const wait=ms=>new Promise(r=>setTimeout(r,ms));
+if(matchMedia('(prefers-reduced-motion: reduce)').matches){const st=steps[1];typed.textContent=st[H.dataset.l];ok.textContent=st[H.dataset.l==='ru'?'okRu':'okEn'];ok.classList.add('on');steps.forEach(x=>x.go());return}
+(async function loop(){
+ for(;;){for(const st of steps){const ru=H.dataset.l==='ru',t=st[ru?'ru':'en'];ok.classList.remove('on');
+   for(let i=typed.textContent.length;i>0;i--){typed.textContent=typed.textContent.slice(0,i-1);await wait(14)}
+   await wait(350);
+   for(let i=1;i<=t.length;i++){typed.textContent=t.slice(0,i);await wait(38+Math.random()*55)}
+   await wait(420);st.go();ok.textContent=st[ru?'okRu':'okEn'];ok.classList.add('on');await wait(2300)}
+  await wait(600);reset()}
+})();
+})();
+</script>
+</body>
+</html>
