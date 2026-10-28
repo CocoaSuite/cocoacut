@@ -599,7 +599,7 @@ function drawText(x,c,t){if(c.font&&!FL[c.font])ensureFont(c.font);const sz=c.si
 function drawClip(x,c,t,noTr){const m=c.media?med(c.media):null;let src=null,iw=0,ih=0;
  if(c.type!=='text'){if(!m||m.type==='audio')return;
   if(m.type==='image'){src=IMG[m.id];if(!src){loadImg(m).catch(()=>{});return}iw=src.naturalWidth;ih=src.naturalHeight}
-  else{const pq=playing&&!exporting&&pxOn(m),pb=pq&&(pxFrame(c,m,t)||pxFrame(c,m,t,1));if(pb){src=pb;iw=pb.width;ih=pb.height}else if(pq)return;else{src=getEl(c).el;if(src.readyState<2)return;iw=src.videoWidth;ih=src.videoHeight}}
+  else{const pq=playing&&!exporting&&pxOn(m),pe=EL[c.id]?.el,pb=pq&&(pxFrame(c,m,t)||(pe&&pe.readyState>=2&&Math.abs(pe.currentTime-srcT(c,Math.max(t,c.start)))<.25?pe:null)||pxFrame(c,m,t,1));if(pb){src=pb;iw=pb.videoWidth||pb.width;ih=pb.videoHeight||pb.height}else if(pq)return;else{src=getEl(c).el;if(src.readyState<2)return;iw=src.videoWidth;ih=src.videoHeight}}
   if(!iw||!ih)return}
  const W=P.w,H=P.h;x.save();let a=c.op??1,post=0,postC='#000',tbl=0,tpx=0;
  const L=[],K0=x.getTransform().a;
@@ -721,7 +721,7 @@ function engStart(){engStop();if(!AC)return;const t0=T,now=AC.currentTime+.06,sr
 function sync(){const ids=new Set(P.clips.map(c=>c.id));for(const id in EL)if(!ids.has(id))dropEl(id);let mc=null,mi=1e9;
  for(const c of P.clips){const m=c.media&&med(c.media);if(!m||m.type==='image'||!URLS[m.id])continue;const e=cend(c)+tail(c),act=T>=c.start-(playing?MOB?2.5:.6:0)&&T<e;if(playing&&T<c.start&&T>=c.start-3&&pxOn(m))pxFrame(c,m,c.start);
   if(!act){const o=EL[c.id];if(o){o.warm=0;if(!o.el.paused)o.el.pause()}continue}
-  if(playing&&pxOn(m))pxFrame(c,m,T);const eb=!!ENG&&BUF[m.id] instanceof AudioBuffer;if(playing&&ENG&&(m.type==='audio'?eb:pxOn(m)&&(eb||BUF[m.id]===null))){const o=EL[c.id];if(o&&!o.el.paused)o.el.pause();continue}
+  if(pxOn(m))pxFrame(c,m,T);const eb=!!ENG&&BUF[m.id] instanceof AudioBuffer;if(playing&&ENG&&(m.type==='audio'?eb:pxOn(m)&&(eb||BUF[m.id]===null))){const o=EL[c.id];if(o&&!o.el.paused)o.el.pause();continue}
   const o=getEl(c),el=o.el,r=spd(c);if(el.playbackRate!==r){el.defaultPlaybackRate=r;el.playbackRate=r}if(el.loop!==!!c.loop)el.loop=!!c.loop;const exp=srcT(c,Math.max(T,c.start)),g=playing&&!eb?gainAt(c,T):0;
   if(o.g)o.g.gain.value=g;else el.volume=clamp(g*mvol(),0,1);
   if(playing&&T>=c.start){const ti=m.type==='video'&&!c.loop&&!trk(c.track).hide&&!el.seeking&&el.readyState>=3?P.tracks.findIndex(x=>x.id===c.track):-1;
@@ -2564,7 +2564,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.4.2';
+const APP_VER='1.4.3';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
