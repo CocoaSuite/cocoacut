@@ -980,7 +980,7 @@ function mux(o){const E=WM.el,u=WM.u,all=o.video.map(v=>({...v,tr:1}));if(o.audi
  if(o.audio)trs.push(E(0xAE,[E(0xD7,u(2)),E(0x73C5,u(2)),E(0x83,u(2)),E(0x86,WM.s('A_OPUS')),E(0x9C,u(0)),E(0x63A2,o.audio.desc||OPUSHEAD),E(0x56AA,u(6500000)),E(0x56BB,u(80000000)),E(0xE1,[E(0xB5,WM.f64(48000)),E(0x9F,u(2))])]));
  return new Blob([head,E(0x18538067,[info,E(0x1654AE6B,trs),...clusters])],{type:'video/webm'})}
 async function readyEl(el){if(el.readyState>=2)return;await once(el,'loadeddata',10000).catch(()=>{})}
-async function seekAll(t){const ps=[];for(const [c] of visibleAt(t)){const m=c.media&&med(c.media);if(!m||m.type!=='video')continue;const el=getEl(c).el;
+async function seekAll(t){const ps=[],va=visibleAt(t),vis=new Set(va.map(([c])=>c.id));for(const id in EL)if(!vis.has(id))dropEl(id);for(const [c] of va){const m=c.media&&med(c.media);if(!m||m.type!=='video')continue;const el=getEl(c).el;
   ps.push((async()=>{await readyEl(el);const exp=Math.min(srcT(c,t)+(window.SEEKEPS??.001),Math.max(0,(el.duration||1e9)-.001));if(Math.abs(el.currentTime-exp)>1e-4||el.seeking){const fr=el.requestVideoFrameCallback?new Promise(r=>el.requestVideoFrameCallback(()=>r())):null;const p=once(el,'seeked',5000).catch(()=>{});el.currentTime=exp;await p;if(fr)await Promise.race([fr,wait(100)])}})())}
  await Promise.all(ps)}
 let cancelExp=false;
@@ -1021,11 +1021,11 @@ async function runExport(){const D=totalDur();if(!(D>0))return toast('The timeli
   const ec=mk(col,br),ea=alpha?mk(alp,Math.max(2e5,br/3)):null,kint=Math.max(1,Math.round(fps*2));
   const c2=document.createElement('canvas');c2.width=W;c2.height=H;const x2=c2.getContext('2d',{willReadFrequently:alpha});const sk=W/P.w;
   const t0=performance.now();
-  for(let f=0;f<N;f++){if(cancelExp)throw new Error('Export cancelled');const t=f/fps;await seekAll(t);render(x2,sk,t);
-   const key=f%kint===0,ts=Math.round(f*fd),dur=Math.round(fd);
+  let fk=0;for(let f=0;f<N;f++){if(cancelExp)throw new Error('Export cancelled');const t=f/fps;await seekAll(t);render(x2,sk,t);
+   const key=f%kint===0||fk,ts=Math.round(f*fd);fk=0;const _u=0,dur=Math.round(fd);
    if(alpha){const [cc,aa]=toI420(x2.getImageData(0,0,W,H).data,W,H),op={format:'I420',codedWidth:W,codedHeight:H,timestamp:ts,duration:dur};const vc=new VideoFrame(cc,op),va=new VideoFrame(aa,op);ec.encode(vc,{keyFrame:key});ea.encode(va,{keyFrame:key});vc.close();va.close()}
    else{const vf=new VideoFrame(c2,{timestamp:ts,duration:dur,alpha:'discard'});ec.encode(vf,{keyFrame:key});vf.close()}
-   while(ec.encodeQueueSize>3||(ea&&ea.encodeQueueSize>3)){if(err)break;await wait(2)}if(err)throw err;
+   {const w0=performance.now();while(ec.encodeQueueSize>3||(ea&&ea.encodeQueueSize>3)){if(err)break;if(performance.now()-w0>3000){await Promise.race([Promise.all([ec.flush(),ea?.flush()]),wait(15000)]);fk=1;if(ec.encodeQueueSize>3)throw new Error(L('The video encoder on this device stopped responding. Try exporting again or choose WebM.','Видеокодер на этом устройстве перестал отвечать. Попробуйте экспорт ещё раз или выберите WebM.'));break}await wait(2)}}if(err)throw err;
    if(f%3===0||f===N-1){bar((f+1)/N);const el=(performance.now()-t0)/1000,left=el/(f+1)*(N-f-1);msg(`Frame ${f+1} of ${N} · about ${Math.ceil(left)} s left`);await wait(0)}}
   await ec.flush();if(ea)await ea.flush();ec.close();ea?.close();if(err)throw err;
   const video=col.map((k,i)=>alpha?{...k,al:alp[i]?.b||new Uint8Array(0)}:k);
@@ -2565,7 +2565,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.4.6';
+const APP_VER='1.4.7';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
