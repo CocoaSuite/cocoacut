@@ -2900,7 +2900,7 @@ else if(!window.cocoaUpd)addEventListener('beforeunload',e=>{if(unsaved()){e.pre
 </script>
 <script>
 // Drive client IDs. The Windows app keeps its own keys in main.js.
-const DRIVE={g:{id:'602726288571-haf6c4oda6quguskh251vmmlt0aisp3v.apps.googleusercontent.com'},y:{id:'9f2286be2dcd4567a9d7f0968d654dd4'}};
+const DRIVE={g:{id:'602726288571-haf6c4oda6quguskh251vmmlt0aisp3v.apps.googleusercontent.com',key:'',app:'602726288571'},y:{id:'9f2286be2dcd4567a9d7f0968d654dd4'}};
 (()=>{
 const DN={g:'Google Drive',y:L('Yandex Disk','Яндекс Диск')},T={},E=window.cocoaDrive;
 async function dFetch(url,o={}){
@@ -2915,44 +2915,79 @@ async function webTok(p){
  const w=open('https://oauth.yandex.ru/authorize?'+new URLSearchParams({response_type:'token',client_id:DRIVE.y.id,redirect_uri:location.origin+location.pathname}),'ydisk','width=520,height=640');
  return new Promise((ok,no)=>{const iv=setInterval(()=>{let h='';try{h=w.location.hash}catch(e){}if(w.closed&&!h){clearInterval(iv);no(Error('denied'))}if(h.includes('access_token')){clearInterval(iv);w.close();const q=new URLSearchParams(h.slice(1));ok({at:q.get('access_token'),exp:Date.now()+(+q.get('expires_in')||3e7)*1e3})}},300)})}
 async function tok(p,force){
- if(!DRIVE[p].id)throw Error(L('Drive isn’t set up in this build yet.','Диск ещё не настроен в этой сборке.'));
+ if(!DRIVE[p].id)throw Error(L('Cloud isn’t set up in this build yet.','Облако ещё не настроено в этой сборке.'));
  let t=T[p]||(T[p]=await idbGet('kv','drv-'+p).catch(()=>null));
+ if(t&&p==='y'&&!(t.sc>=2))t=null;
  if(t&&!force&&t.exp>Date.now()+6e4)return t.at;
  t=E?await E.auth(p,{},t?.rt||''):await webTok(p);
- if(!t?.at)throw Error(L('Sign-in failed','Не удалось войти'));T[p]=t;idbPut('kv','drv-'+p,t);return t.at}
+ return keep(p,t)}
+function keep(p,t){if(!t?.at)throw Error(L('Sign-in failed','Не удалось войти'));t={at:t.at,rt:t.rt,exp:t.exp,sc:2};T[p]=t;idbPut('kv','drv-'+p,t);return t.at}
 async function api(p,url,o={},re){const at=await tok(p,re);const r=await dFetch(url,{...o,headers:{...(o.headers||{}),Authorization:(p==='g'?'Bearer ':'OAuth ')+at}});
  if(r.status===401&&!re)return api(p,url,o,1);if(!r.ok&&r.status!==308)throw Error('HTTP '+r.status);return r}
-const GA='https://www.googleapis.com/',YA='https://cloud-api.yandex.net/v1/disk/resources';
+const GA='https://www.googleapis.com/',YA='https://cloud-api.yandex.net/v1/disk/resources',SD='supportsAllDrives=true';
+const FD={};
+async function fold(p){if(!(p in FD))FD[p]=await idbGet('kv','drv-fold-'+p).catch(()=>null)||null;return FD[p]}
+function setFold(p,f){FD[p]=f;idbPut('kv','drv-fold-'+p,f)}
+const js=src=>new Promise((ok,no)=>{const s=document.createElement('script');s.src=src;s.onload=ok;s.onerror=()=>no(Error('offline'));document.head.appendChild(s)});
+async function gPick(kind){
+ const meta=id=>api('g',GA+'drive/v3/files/'+id+'?'+SD+'&fields=id,name,mimeType').then(r=>r.json());
+ if(E){const c=await E.auth('g',{},'',kind);keep('g',c);return Promise.all((c.picked||[]).map(meta))}
+ if(!DRIVE.g.key)throw Error(L('The Google file picker isn’t set up yet.','Выбор файлов Google ещё не настроен.'));
+ const at=await tok('g');if(!window.gapi)await js('https://apis.google.com/js/api.js');await new Promise(r=>gapi.load('picker',r));
+ const G=google.picker,F='application/vnd.google-apps.folder',vw=v=>{v.setIncludeFolders?.(true);v.setSelectFolderEnabled(kind==='folder');if(kind==='folder')v.setMimeTypes(F);return v};
+ return new Promise(ok=>{const b=new G.PickerBuilder().addView(vw(new G.DocsView(G.ViewId.DOCS))).addView(vw(new G.DocsView(G.ViewId.DOCS).setOwnedByMe(false))).addView(vw(new G.DocsView(G.ViewId.DOCS).setEnableDrives(true)))
+  .setOAuthToken(at).setDeveloperKey(DRIVE.g.key).setAppId(DRIVE.g.app).setLocale(LANG==='ru'?'ru':'en').setCallback(d=>{if(d.action===G.Action.PICKED)ok(d.docs.map(x=>({id:x.id,name:x.name,mimeType:x.mimeType})));else if(d.action===G.Action.CANCEL)ok([])});
+  if(kind!=='folder')b.enableFeature(G.Feature.MULTISELECT_ENABLED);b.build().setVisible(true)})}
+const yBase=async()=>(await fold('y'))?.id||'app:/',yJoin=(a,n)=>a+(a.endsWith('/')?'':'/')+n;
 const D={
- g:{list:async()=>(await(await api('g',GA+'drive/v3/files?'+new URLSearchParams({q:"name contains '.ccut' and trashed=false",fields:'files(id,name,modifiedTime,size)',orderBy:'modifiedTime desc',pageSize:100}))).json()).files.map(f=>({id:f.id,name:f.name,t:f.modifiedTime,size:+f.size||0})),
-  get:async(f,pg)=>(await api('g',GA+'drive/v3/files/'+f.id+'?alt=media',{prog:pg})).blob(),
-  put:async(name,b,id,pg)=>{const r=await api('g',GA+'upload/drive/v3/files'+(id?'/'+id:'')+'?uploadType=resumable',{method:id?'PATCH':'POST',headers:{'Content-Type':'application/json; charset=UTF-8'},body:JSON.stringify(id?{}:{name})});
+ g:{list:async()=>{const f=await fold('g');return(await(await api('g',GA+'drive/v3/files?'+new URLSearchParams({q:(f?`'${f.id}' in parents and `:'')+"name contains '.ccut' and trashed=false",fields:'files(id,name,modifiedTime,size,lastModifyingUser(displayName,me))',orderBy:'modifiedTime desc',pageSize:200,supportsAllDrives:true,includeItemsFromAllDrives:true}))).json()).files.map(f=>({id:f.id,name:f.name,t:f.modifiedTime,size:+f.size||0,by:f.lastModifyingUser&&!f.lastModifyingUser.me?f.lastModifyingUser.displayName:''}))},
+  stat:async id=>(await(await api('g',GA+'drive/v3/files/'+id+'?'+SD+'&fields=modifiedTime')).json()).modifiedTime,
+  get:async(f,pg)=>(await api('g',GA+'drive/v3/files/'+f.id+'?alt=media&'+SD,{prog:pg})).blob(),
+  put:async(name,b,id,pg)=>{const f=await fold('g');const r=await api('g',GA+'upload/drive/v3/files'+(id?'/'+id:'')+'?uploadType=resumable&'+SD,{method:id?'PATCH':'POST',headers:{'Content-Type':'application/json; charset=UTF-8'},body:JSON.stringify(id?{}:{name,...(f?{parents:[f.id]}:{})})});
    if(!r.loc)throw Error('No upload link');const u=await dFetch(r.loc,{method:'PUT',body:b,prog:pg});if(!u.ok)throw Error('HTTP '+u.status)}},
- y:{list:async()=>{try{return(await(await api('y',YA+'?path=app:/&limit=200&sort=-modified')).json())._embedded.items.filter(i=>/\.ccut$/i.test(i.name)).map(i=>({id:i.path,name:i.name,t:i.modified,size:i.size||0}))}catch(e){if(/404/.test(e.message))return[];throw e}},
+ y:{list:async()=>{try{return(await(await api('y',YA+'?'+new URLSearchParams({path:await yBase(),limit:500,sort:'-modified'}))).json())._embedded.items.filter(i=>i.type==='file'&&/\.ccut$/i.test(i.name)).map(i=>({id:i.path,name:i.name,t:i.modified,size:i.size||0}))}catch(e){if(/404/.test(e.message))return[];throw e}},
+  stat:async id=>(await(await api('y',YA+'?'+new URLSearchParams({path:id,fields:'modified'}))).json()).modified,
+  dirs:async path=>(await(await api('y',YA+'?'+new URLSearchParams({path,limit:500,sort:'name'}))).json())._embedded.items.filter(i=>i.type==='dir').map(i=>({id:i.path,name:i.name})),
   get:async(f,pg)=>{const h=(await(await api('y',YA+'/download?path='+encodeURIComponent(f.id))).json()).href;return(await dFetch(h,{prog:pg})).blob()},
-  put:async(name,b,id,pg)=>{const h=(await(await api('y',YA+'/upload?overwrite=true&path='+encodeURIComponent('app:/'+name))).json()).href;const u=await dFetch(h,{method:'PUT',body:b,prog:pg});if(!u.ok)throw Error('HTTP '+u.status)}}};
-const st=document.createElement('style');st.textContent='#drv{z-index:97}#drv .box{width:min(460px,100%);display:flex;flex-direction:column;gap:10px}#drv .tabs{display:flex;gap:6px}#drv .tabs .on{background:var(--acc,#693E2C);color:#fff}#drv ul{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto}#drv li{display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}#drv li:hover{background:rgba(127,127,127,.15)}#drv li small{color:var(--mute)}#drv .msg{color:var(--mute);margin:0}#drv .row{display:flex;gap:6px}#drv .row input{flex:1}#drv .pb{height:6px;border-radius:3px;background:var(--panel2,#252525);overflow:hidden}#drv .pb i{display:block;height:100%;width:0;background:var(--pri,#f2f2f2);transition:width .2s}';document.head.appendChild(st);
+  put:async(name,b,id,pg)=>{const h=(await(await api('y',YA+'/upload?overwrite=true&path='+encodeURIComponent(yJoin(await yBase(),name)))).json()).href;const u=await dFetch(h,{method:'PUT',body:b,prog:pg});if(!u.ok)throw Error('HTTP '+u.status)}}};
+const st=document.createElement('style');st.textContent='#drv{z-index:97}#drv .box{width:min(480px,100%);display:flex;flex-direction:column;gap:10px}#drv .tabs{display:flex;gap:6px}#drv .tabs .on{background:var(--acc,#4a4a4a);color:#fff}#drv ul{list-style:none;margin:0;padding:0;max-height:300px;overflow:auto}#drv li{display:flex;justify-content:space-between;gap:8px;padding:7px 8px;border-radius:8px;cursor:pointer}#drv li:hover{background:rgba(127,127,127,.15)}#drv li small{color:var(--mute);white-space:nowrap}#drv .msg{color:var(--mute);margin:0}#drv .row{display:flex;gap:6px;align-items:center}#drv .row input{flex:1}#drv .fd{display:flex;gap:8px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:8px}#drv .fd span{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#drv .fd small{display:block;color:var(--mute)}#drv .pb{height:6px;border-radius:3px;background:var(--panel2,#252525);overflow:hidden}#drv .pb i{display:block;height:100%;width:0;background:var(--pri,#f2f2f2);transition:width .2s}';document.head.appendChild(st);
 const M=document.createElement('div');M.id='drv';M.className='modal';M.hidden=true;document.body.appendChild(M);
-let mode,pv;try{pv=localStorage.getItem('cc-drv')||'g'}catch(e){pv='g'}
-const kb=n=>n>1e6?(n/1e6).toFixed(1)+' MB':Math.ceil(n/1e3)+' KB';
-function ui(){M.innerHTML=`<div class="box" role="dialog" aria-modal="true"><h3 style="margin:0;font-size:15px"></h3><div class="tabs"></div><p class="msg"></p><div class="pb" hidden><i></i></div><ul></ul>${mode==='save'?'<div class="row"><input><button class="pri" data-s>'+L('Upload','Загрузить')+'</button></div>':''}<div class="row" style="justify-content:flex-end"><button data-x>${L('Close','Закрыть')}</button></div></div>`;
- M.querySelector('h3').textContent=mode==='save'?L('Upload to cloud','Загрузить в облако'):L('Open from cloud','Открыть из облака');
- for(const p of['g','y']){const b=document.createElement('button');b.textContent=DN[p];if(p===pv)b.className='on';b.onclick=()=>{pv=p;try{localStorage.setItem('cc-drv',p)}catch(e){}ui()};M.querySelector('.tabs').appendChild(b)}
- const inp=M.querySelector('input');if(inp)inp.value=safeName()+'.ccut';
- M.querySelector('[data-x]').onclick=()=>M.hidden=true;const sb=M.querySelector('[data-s]');if(sb)sb.onclick=()=>save(inp.value);load()}
-const msg=t=>{const m=M.querySelector('.msg');if(m)m.textContent=t};
-let files=[];
-async function load(){const ul=M.querySelector('ul'),p=pv;msg(L('Connecting…','Подключение…'));
- try{files=await D[p].list();if(p!==pv)return;msg(files.length?'':mode==='save'?L('No CocoaCut projects here yet.','Здесь пока нет проектов CocoaCut.'):L('No CocoaCut projects here yet. Save one to this drive first.','Здесь пока нет проектов CocoaCut. Сначала сохраните проект на этот диск.'));
-  for(const f of files){const li=document.createElement('li');li.innerHTML='<span></span><small></small>';li.firstChild.textContent=f.name;li.lastChild.textContent=(f.t?new Date(f.t).toLocaleDateString()+' · ':'')+kb(f.size);
-   li.onclick=()=>mode==='save'?(M.querySelector('input').value=f.name):get(f);ul.appendChild(li)}}
+let mode,pv,ybr=null,files=[],OPN=null;try{pv=localStorage.getItem('cc-drv')||'g'}catch(e){pv='g'}
+const kb=n=>n>1e6?(n/1e6).toFixed(1)+' MB':Math.ceil(n/1e3)+' KB',q=s=>M.querySelector(s);
+const msg=t=>{const m=q('.msg');if(m)m.textContent=t};
+const bar=(t,v)=>{const b=q('.pb');if(!b)return;b.hidden=v==null;b.firstChild.style.width=(v||0)*100+'%';msg(v==null?t:t+' '+Math.round(v*100)+'%')};
+const fail=e=>bar(e.message||String(e));
+async function ui(){
+ M.innerHTML=`<div class="box" role="dialog" aria-modal="true"><h3 style="margin:0;font-size:15px"></h3><div class="tabs"></div><div class="fd"><span></span><button data-f></button><button data-r hidden>${L('Reset','Сбросить')}</button></div><p class="msg"></p><div class="pb" hidden><i></i></div><ul></ul>${mode==='save'?'<div class="row"><input><button class="pri" data-s>'+L('Upload','Загрузить')+'</button></div>':''}<div class="row" style="justify-content:flex-end"><button data-b hidden></button><span style="flex:1"></span><button data-x>${L('Close','Закрыть')}</button></div></div>`;
+ q('h3').textContent=ybr?L('Choose a folder','Выбор папки'):mode==='save'?L('Upload to cloud','Загрузить в облако'):L('Open from cloud','Открыть из облака');
+ for(const p of['g','y']){const b=document.createElement('button');b.textContent=DN[p];if(p===pv)b.className='on';b.onclick=()=>{pv=p;ybr=null;try{localStorage.setItem('cc-drv',p)}catch(e){}ui()};q('.tabs').appendChild(b)}
+ q('[data-x]').onclick=()=>{M.hidden=true;ybr=null};
+ const f=await fold(pv),fs=q('.fd span'),fb=q('[data-f]'),rb=q('[data-r]');
+ if(ybr!==null)return yBrowse();
+ fs.innerHTML='';fs.append(f?f.name:pv==='g'?L('My Drive','Мой диск'):L('Apps / CocoaCut (only you)','Приложения / CocoaCut (только вы)'));const sm=document.createElement('small');sm.textContent=f?L('Shared with everyone who has access to this folder','Видят все, у кого есть доступ к этой папке'):L('Pick a shared folder to work together','Выберите общую папку для совместной работы');fs.prepend(Object.assign(document.createElement('small'),{textContent:L('Folder','Папка')}));fs.append(sm);
+ fb.textContent=L('Change…','Изменить…');rb.hidden=!f;rb.onclick=()=>{setFold(pv,null);ui()};
+ fb.onclick=async()=>{if(pv==='y'){ybr='disk:/';return ui()}try{const r=(await gPick('folder')).find(x=>x.mimeType==='application/vnd.google-apps.folder');if(r){setFold('g',{id:r.id,name:r.name});ui()}}catch(e){fail(e)}};
+ const bb=q('[data-b]');if(pv==='g'){bb.hidden=false;bb.textContent=L('Find in Google Drive…','Найти в Google Диске…');bb.onclick=async()=>{try{const r=(await gPick('file')).filter(x=>/\.ccut$/i.test(x.name));if(!r.length)return;if(mode==='open')return get({id:r[0].id,name:r[0].name});load()}catch(e){fail(e)}}}
+ const inp=q('input');if(inp)inp.value=safeName()+'.ccut';const sb=q('[data-s]');if(sb)sb.onclick=()=>save(inp.value);load()}
+async function yBrowse(){const fs=q('.fd span'),fb=q('[data-f]'),ul=q('ul');fs.textContent=ybr.replace(/^disk:/,'')||'/';fb.textContent=L('Use this folder','Выбрать эту папку');
+ fb.onclick=()=>{setFold('y',ybr==='disk:/'?{id:'disk:/',name:L('Disk root','Корень Диска')}:{id:ybr,name:ybr.split('/').pop()});ybr=null;ui()};
+ msg(L('Loading…','Загрузка…'));try{const ds=await D.y.dirs(ybr);msg(ds.length?L('Shared folders show up here once you accept the invite.','Общие папки появятся здесь, когда вы примете приглашение.'):L('No folders here.','Тут нет папок.'));
+  const add=(n,go)=>{const li=document.createElement('li');li.textContent=n;li.onclick=()=>{ybr=go;ui()};ul.appendChild(li)};
+  if(ybr!=='disk:/')add('← '+L('Back','Назад'),ybr.replace(/\/[^/]+\/?$/,'')||'disk:/');for(const d of ds)add(d.name,d.id)}catch(e){fail(e)}}
+async function load(){const ul=q('ul'),p=pv;msg(L('Connecting…','Подключение…'));
+ try{files=await D[p].list();if(p!==pv||ybr!==null)return;ul.innerHTML='';msg(files.length?'':L('No CocoaCut projects here yet.','Здесь пока нет проектов CocoaCut.')+(p==='g'&&mode==='open'?' '+L('If a teammate added one, use “Find in Google Drive”.','Если проект добавил коллега, нажмите «Найти в Google Диске».'):''));
+  for(const f of files){const li=document.createElement('li');li.innerHTML='<span></span><small></small>';li.firstChild.textContent=f.name;li.lastChild.textContent=(f.by?f.by+' · ':'')+(f.t?new Date(f.t).toLocaleDateString()+' · ':'')+kb(f.size);
+   li.onclick=()=>mode==='save'?(q('input').value=f.name):get(f);ul.appendChild(li)}}
  catch(e){if(p===pv)msg(L('Couldn’t reach ','Не удалось подключиться к ')+DN[p]+': '+e.message)}}
-const bar=(t,v)=>{const b=M.querySelector('.pb');if(!b)return;b.hidden=v==null;b.firstChild.style.width=(v||0)*100+'%';msg(v==null?t:t+' '+Math.round(v*100)+'%')};
-async function get(f){const t=L('Downloading ','Скачивание ')+f.name+'…';bar(t,0);try{const b=await D[pv].get(f,v=>bar(t,v));M.hidden=true;await openProject(new File([b],f.name))}catch(e){bar(L('Couldn’t open: ','Не удалось открыть: ')+e.message)}}
+async function get(f){const t=L('Downloading ','Скачивание ')+f.name+'…';bar(t,0);try{const tm=f.t||await D[pv].stat(f.id).catch(()=>'');const b=await D[pv].get(f,v=>bar(t,v));M.hidden=true;await openProject(new File([b],f.name));OPN={p:pv,id:f.id,t:tm}}catch(e){bar(L('Couldn’t open: ','Не удалось открыть: ')+e.message)}}
 async function save(n){n=(n||'').trim().replace(/[\\/:*?"<>|]+/g,'_');if(!n)return;if(!/\.ccut$/i.test(n))n+='.ccut';
- const ex=files.find(f=>f.name===n),t=L('Uploading…','Загрузка…');bar(t,0);M.querySelectorAll('button').forEach(b=>b.disabled=true);
- try{await D[pv].put(n,projBlob(),ex?.id,v=>bar(t,v));markClean();M.hidden=true;toast(L('Saved to ','Сохранено: ')+DN[pv]+' · '+n)}catch(e){bar(L('Couldn’t upload: ','Не удалось загрузить: ')+e.message)}finally{M.querySelectorAll('button').forEach(b=>b.disabled=false)}}
-window.driveDlg=m=>{mode=m;M.hidden=false;ui()};
+ const ex=files.find(f=>f.name===n);
+ if(ex){const tm=await D[pv].stat(ex.id).catch(()=>ex.t),mine=OPN&&OPN.p===pv&&OPN.id===ex.id;
+  if(!mine||tm!==OPN.t){if(!confirm(mine?L('Someone changed “'+n+'” after you opened it. Replace their version with yours?','Кто-то изменил «'+n+'» после того, как вы его открыли. Заменить их версию вашей?'):L('“'+n+'” already exists in this folder. Replace it?','«'+n+'» уже есть в этой папке. Заменить?')))return}}
+ const t=L('Uploading…','Загрузка…');bar(t,0);M.querySelectorAll('button').forEach(b=>b.disabled=true);
+ try{await D[pv].put(n,projBlob(),ex?.id,v=>bar(t,v));markClean();files=await D[pv].list().catch(()=>files);const nf=files.find(f=>f.name===n);if(nf)OPN={p:pv,id:nf.id,t:nf.t};M.hidden=true;toast(L('Uploaded to ','Загружено: ')+DN[pv]+' · '+n)}
+ catch(e){bar(L('Couldn’t upload: ','Не удалось загрузить: ')+e.message)}finally{M.querySelectorAll('button').forEach(b=>b.disabled=false)}}
+window.driveDlg=m=>{mode=m;ybr=null;M.hidden=false;ui()};
 const sa=document.getElementById('bSaveAs');if(sa){const a=document.createElement('button'),b=document.createElement('button');a.id='bDrvO';a.textContent=L('Open from cloud…','Открыть из облака…');b.id='bDrvS';b.textContent=L('Upload to cloud…','Загрузить в облако…');a.onclick=()=>driveDlg('open');b.onclick=()=>driveDlg('save');sa.after(a,b)}
 const so=document.getElementById('stOpen');if(so){const c=document.createElement('button');c.textContent=L('Open from cloud…','Открыть из облака…');c.onclick=()=>{document.getElementById('stX')?.click();driveDlg('open')};so.after(c)}
 })();
