@@ -725,7 +725,7 @@ function sync(){const ids=new Set(P.clips.map(c=>c.id));for(const id in EL)if(!i
   const o=getEl(c),el=o.el,r=spd(c);if(el.playbackRate!==r){el.defaultPlaybackRate=r;el.playbackRate=r}if(el.loop!==!!c.loop)el.loop=!!c.loop;const exp=srcT(c,Math.max(T,c.start)),g=playing&&!eb?gainAt(c,T):0;
   if(o.g)o.g.gain.value=g;else el.volume=clamp(g*mvol(),0,1);
   if(playing&&T>=c.start){const ti=m.type==='video'&&!c.loop&&!trk(c.track).hide&&!el.seeking&&el.readyState>=3?P.tracks.findIndex(x=>x.id===c.track):-1;
-   if(el.paused){if(el.ended||exp>=(el.duration||1e9)-.05){}else{if(Math.abs(el.currentTime-exp)>.05)el.currentTime=exp;el.play().catch(()=>{})}}else if(ti>=0&&ti<mi&&T<cend(c)&&Math.abs(el.currentTime-exp)<1.5){mi=ti;if(!ENG)mc={c,el}}else if(Math.abs(el.currentTime-exp)>(MCLK&&MCLK.el===el?1.5:.3))el.currentTime=exp}
+   const nw=performance.now(),lead=MOB?.25:0;if(el.paused){if(el.ended||exp>=(el.duration||1e9)-.05){}else if(!(o.cool>nw)||!el.seeking){if(Math.abs(el.currentTime-exp)>.05&&!(o.cool>nw)){el.currentTime=Math.min(exp+lead,(el.duration||1e9)-.05);o.cool=nw+(MOB?1200:300)}el.play().catch(()=>{})}}else if(ti>=0&&ti<mi&&T<cend(c)&&Math.abs(el.currentTime-exp)<1.5){mi=ti;if(!ENG)mc={c,el}}else if(!el.seeking&&!(o.cool>nw)&&Math.abs(el.currentTime-exp)>(MCLK&&MCLK.el===el?1.5:MOB?.5:.3)){el.currentTime=Math.min(exp+(el.currentTime<exp?lead:0),(el.duration||1e9)-.05);o.cool=nw+(MOB?1500:400)}}
   else{if(playing&&!MOB&&!o.warm&&el.readyState>=2){o.warm=1;el.play().then(()=>{if(!playing||T<c.start-.04)el.pause()}).catch(()=>{});continue}if(!el.paused)el.pause();if(!el.seeking&&el.paused&&Math.abs(el.currentTime-exp)>.4/P.fps)el.currentTime=Math.min(exp+.001,Math.max(0,(el.duration||1e9)-.001))}}MCLK=playing?mc:null}
 function play(){if(playing)return stop();ensureAC();if(T>=totalDur()-.01)T=0;playing=true;playT0=T;playS=performance.now();engStart();$('bPlay').innerHTML=ICO.pause;$('bPlay').setAttribute('aria-label','Pause')}
 function stop(){playing=false;engStop();for(const id in EL)EL[id].el.pause();T=fq(T);$('bPlay').innerHTML=ICO.play;$('bPlay').setAttribute('aria-label','Play');dirty=true}
@@ -1397,14 +1397,15 @@ function pxFrame(c,m,t,loose){const X=PX[m.id];if(!X||!X.ready||!X.t.length)retu
  let best=null,bd=loose?1e9:31;for(const [k,b] of X.bm){const d=k<=lo?lo-k:(k-lo)*1.5;if(d<bd){bd=d;best=b}}return best}
 function pxQueue(m){if(m.type!=='video'||!m.w||Math.max(m.w,m.h)<=960||PX[m.id]||!('requestVideoFrameCallback' in HTMLVideoElement.prototype))return;PX[m.id]={ready:false,t:[],f:[],bm:new Map(),pend:new Set()};pxQ=pxQ.then(()=>pxMake(m)).catch(()=>{})}
 async function pxFill(m,X){if(!m.dur)return;const T0=X.t,gaps=[];let prev=0;for(const t of T0.concat([m.dur])){if(t-prev>.3)gaps.push([prev,t]);prev=t}if(!gaps.length)return;
- const v=document.createElement('video');v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.src=URLS[m.id];
+ const v=document.createElement('video');v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';document.body.appendChild(v);v.src=URLS[m.id];
  try{await once(v,'loadeddata',20000);const k=640/Math.max(m.w,m.h),w=Math.max(2,Math.round(m.w*k)),h=Math.max(2,Math.round(m.h*k)),cv=document.createElement('canvas');cv.width=w;cv.height=h;const g=cv.getContext('2d');const add=[];
-  for(const [a,b] of gaps)for(let t=a?a+.1:0;t<Math.min(b,m.dur-.02);t+=.1){while(playing||exporting)await new Promise(r=>setTimeout(r,300));if(!med(m.id)||X.dead)return;v.currentTime=t;await once(v,'seeked',5000);g.drawImage(v,0,0,w,h);const bl=await new Promise(r=>cv.toBlob(r,'image/jpeg',.72));if(bl)add.push([t,bl])}
+  const idle=async()=>{if(!(playing||exporting))return;v.removeAttribute('src');v.load();while(playing||exporting)await new Promise(r=>setTimeout(r,300));v.src=URLS[m.id];await once(v,'loadeddata',20000)};
+  for(const [a,b] of gaps)for(let t=a?a+.1:0;t<Math.min(b,m.dur-.02);t+=.1){await idle();if(!med(m.id)||X.dead)return;v.currentTime=t;await once(v,'seeked',5000);g.drawImage(v,0,0,w,h);const bl=await new Promise(r=>cv.toBlob(r,'image/jpeg',.72));if(bl)add.push([t,bl])}
   if(!add.length)return;const all=X.t.map((t,i)=>[t,X.f[i]]).concat(add).sort((p,q)=>p[0]-q[0]);X.t=all.map(x=>x[0]);X.f=all.map(x=>x[1]);for(const b of X.bm.values())b.close?.();X.bm.clear();X.pend.clear();dirty=true;
-  idbPut('blobs','px:'+m.id,{t:Float64Array.from(X.t),f:X.f}).catch(()=>{})}catch(e){}finally{v.removeAttribute('src');v.load()}}
+  idbPut('blobs','px:'+m.id,{t:Float64Array.from(X.t),f:X.f}).catch(()=>{})}catch(e){}finally{v.removeAttribute('src');v.load();v.remove()}}
 async function pxMake(m){const X=PX[m.id];if(!X||!med(m.id))return;
  try{const sv=await idbGet('blobs','px:'+m.id);if(sv&&sv.f?.length){X.t=Array.from(sv.t);X.f=sv.f;X.ready=true;PXS[m.id]='fast preview';renderBin();await pxFill(m,X);return}}catch(e){}
- const v=document.createElement('video');v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.src=URLS[m.id];
+ const v=document.createElement('video');v.muted=true;v.playsInline=true;v.setAttribute('playsinline','');v.preload='auto';v.style.cssText='position:fixed;left:0;top:0;width:2px;height:2px;opacity:0;pointer-events:none';document.body.appendChild(v);v.src=URLS[m.id];
  const k=640/Math.max(m.w,m.h),w=Math.max(2,Math.round(m.w*k)),h=Math.max(2,Math.round(m.h*k)),cv=document.createElement('canvas');cv.width=w;cv.height=h;const g=cv.getContext('2d');
  const fr=[];let shown=-1;
  try{await once(v,'loadeddata',20000);
@@ -1416,7 +1417,7 @@ async function pxMake(m){const X=PX[m.id];if(!X||!med(m.id))return;
    v.play().catch(()=>{})});
   fr.sort((a,b)=>a[0]-b[0]);X.t=fr.map(f=>f[0]);X.f=fr.map(f=>f[1]);X.ready=X.f.length>0;PXS[m.id]=X.ready?'fast preview':'';renderBin();
   if(X.ready){idbPut('blobs','px:'+m.id,{t:Float64Array.from(X.t),f:X.f}).catch(()=>{});await pxFill(m,X)}}
- catch(e){PXS[m.id]='';delete PX[m.id]}finally{v.removeAttribute('src');v.load()}}
+ catch(e){PXS[m.id]='';delete PX[m.id]}finally{v.removeAttribute('src');v.load();v.remove()}}
 // ---------- transition library + drag and drop ----------
 let DND=null,binTab='media';
 function binShow(t){binTab=t;for(const b of document.querySelectorAll('.btabs button'))b.classList.toggle('on',b.dataset.bt===t);$('binList').hidden=t!=='media';$('bText').hidden=t!=='media';$('bImp').hidden=t!=='media';for(const k of ['tr','tx','fx','fl'])$(k+'Lib').hidden=t!==k;if(t==='tr')drawTiles();else if(t!=='media')drawLib(t)}
@@ -2564,7 +2565,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.4.3';
+const APP_VER='1.4.4';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
