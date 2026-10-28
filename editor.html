@@ -967,7 +967,13 @@ async function encOpus(buf,codec='opus'){const cfg={codec,sampleRate:48000,numbe
  enc.configure(cfg);const L=buf.length,c0=buf.getChannelData(0),c1=buf.numberOfChannels>1?buf.getChannelData(1):c0,S=4800;
  for(let i=0;i<L;i+=S){const n=Math.min(S,L-i),d=new Float32Array(n*2);d.set(c0.subarray(i,i+n),0);d.set(c1.subarray(i,i+n),n);
   const ad=new AudioData({format:'f32-planar',sampleRate:48000,numberOfFrames:n,numberOfChannels:2,timestamp:Math.round(i/48000*1e6),data:d});enc.encode(ad);ad.close();if(err)throw err;if(enc.encodeQueueSize>16)await wait(1)}
- await enc.flush();enc.close();if(err)throw err;return{chunks:out,desc,codec:codec==='opus'?'opus':'aac'}}
+ await enc.flush();enc.close();if(err)throw err;
+ // don't trust encoder timing/headers (WebKit's AAC encoder has shipped wrong ones): AAC-LC frames are 1024 samples, Opus length is in each packet's TOC byte
+ const on=x=>{const t=x[0],c=t>>3,f=c<12?[480,960,1920,2880][c&3]:c<16?[480,960][c&1]:[120,240,480,960][c&3],k=t&3;return f*(k===0?1:k<3?2:(x[1]&63)||1)};
+ const hex=d=>d?[...d.slice(0,24)].map(x=>x.toString(16).padStart(2,'0')).join(''):'none',ec=out[0];EXLOG.push('sound '+codec+': '+out.length+' packets for '+(L/48000).toFixed(2)+'s · first ts '+(ec?ec.ts:'-')+' dur '+(ec?ec.dur:'-')+' · header '+hex(desc));
+ if(!out.length)return null;let n=0;for(const k of out){const d=codec==='opus'?(k.b.length?on(k.b):960):1024;k.ts=Math.round(n*1e6/48000);k.dur=d*1e6/48000;n+=d}
+ if(codec==='opus')desc=desc&&desc.length>=19&&String.fromCharCode(...desc.slice(0,8))==='OpusHead'?desc:null;else desc=new Uint8Array([0x11,0x90]);
+ return{chunks:out,desc,codec:codec==='opus'?'opus':'aac'}}
 function mux(o){const E=WM.el,u=WM.u,all=o.video.map(v=>({...v,tr:1}));if(o.audio)for(const a of o.audio.chunks)all.push({ts:a.ts,b:a.b,tr:2,key:true});
  all.sort((a,b)=>a.ts-b.ts||a.tr-b.tr);const clusters=[];let cl=null,ct=0;
  for(const k of all){const ms=Math.max(0,Math.round(k.ts/1000));if(!cl||(k.tr===1&&k.key)||ms-ct>30000){if(cl)clusters.push(E(0x1F43B675,cl));ct=ms;cl=[E(0xE7,u(ms))]}
@@ -2582,7 +2588,7 @@ Object.assign(RU,{'Wobble (deg)':'Покачивание (°)','Snap wobble':'Р
 window.QPHANTOM=/^[\s.…!,-]*(продолжение следует|субтитры (сделал|создавал|делал|подогнал)[^.]*|редактор субтитров[^.]*|корректор[^.]*|спасибо за просмотр|thanks? (you )?for watching|to be continued|thank you\.?|you|bye\.?|\[?(music|музыка|silence|тишина)\]?|♪+)[\s.…!,-]*$/i;
 </script>
 <script>
-const APP_VER='1.5.0';
+const APP_VER='1.5.1';
 (()=>{const U=window.cocoaUpd;if(!U)return;
 const st=document.createElement('style');st.textContent=`.upB{border:1px solid var(--line);background:var(--panel2);border-radius:10px;padding:12px;display:flex;flex-direction:column;gap:8px}.upB[hidden],#upBar[hidden]{display:none}
 .upH{display:flex;align-items:center;gap:8px;font-weight:600}.upDot{width:8px;height:8px;border-radius:50%;background:#e5484d;flex:none}.upV{color:var(--mute);font-weight:400;font-size:12px}
