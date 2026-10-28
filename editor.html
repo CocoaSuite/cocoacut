@@ -3103,5 +3103,47 @@ if(hq&&rv){const top=document.createElement('button');top.id='mHelp';top.classNa
  st.textContent+='#mRev{display:none!important}body.rev #mHelp{display:none!important}body.qOn #mHelp{background:var(--pri);color:var(--prifg)}'}
 })();
 </script>
+<script>
+// sound from MP4/MOV files: read only the AAC frames and decode them as ADTS (light on memory, works where the browser can't read the container)
+(()=>{
+const rd=async(b,s,e)=>new DataView(await b.slice(s,e).arrayBuffer());
+const str=(v,o)=>String.fromCharCode(v.getUint8(o),v.getUint8(o+1),v.getUint8(o+2),v.getUint8(o+3));
+function kids(v,s,e){const out=[];let o=s;while(o+8<=e){let n=v.getUint32(o),h=8;const t=str(v,o+4);if(n===1){n=Number(v.getBigUint64(o+8));h=16}else if(n===0)n=e-o;if(n<h||o+n>e)break;out.push({t,s:o+h,e:o+n});o+=n}return out}
+const find=(v,s,e,t)=>kids(v,s,e).find(k=>k.t===t);
+const path=(v,b,ts)=>{let c=b;for(const t of ts){c=c&&find(v,c.s,c.e,t);if(!c)return null}return c};
+async function isoAudio(blob,ctx){
+ const h=await rd(blob,0,8);if(str(h,4)!=='ftyp')return null;
+ let o=0,moov=null;while(o<blob.size){const v=await rd(blob,o,o+16);let n=v.getUint32(0),hd=8;const t=str(v,4);if(n===1){n=Number(v.getBigUint64(8));hd=16}else if(n===0)n=blob.size-o;if(n<8)break;if(t==='moov'){moov={o,n};break}o+=n}
+ if(!moov||moov.n>64e6)return null;
+ const v=await rd(blob,moov.o,moov.o+moov.n),root={s:8,e:moov.n};
+ for(const tk of kids(v,root.s,root.e).filter(k=>k.t==='trak')){
+  const hd=path(v,tk,['mdia','hdlr']);if(!hd||str(v,hd.s+8)!=='soun')continue;
+  const md=path(v,tk,['mdia','mdhd']),ver=v.getUint8(md.s),scale=v.getUint32(md.s+(ver?20:12));
+  const st=path(v,tk,['mdia','minf','stbl']);if(!st)continue;
+  const sd=find(v,st.s,st.e,'stsd');if(!sd)continue;const en=sd.s+8;if(str(v,en+4)!=='mp4a')continue;
+  const sv=v.getUint16(en+16);const es=kids(v,en+36+(sv===1?16:sv===2?36:0),en+v.getUint32(en)).find(k=>k.t==='esds')||(()=>{const w=kids(v,en+36+(sv===1?16:sv===2?36:0),en+v.getUint32(en)).find(k=>k.t==='wave');return w&&find(v,w.s,w.e,'esds')})();if(!es)continue;
+  let p=es.s+4,asc=null;const len=()=>{let n=0,b;do{b=v.getUint8(p++);n=n<<7|b&127}while(b&128);return n};
+  while(p<es.e){const tag=v.getUint8(p++),n=len();if(tag===3){p+=3;continue}if(tag===4){p+=13;continue}if(tag===5){asc=[v.getUint8(p),v.getUint8(p+1)];break}p+=n}
+  if(!asc)continue;const ot=asc[0]>>3,fi=(asc[0]&7)<<1|asc[1]>>7,ch=asc[1]>>3&15;if(ot<1||ot>4||fi>12)continue;
+  const sz=find(v,st.s,st.e,'stsz'),sc=find(v,st.s,st.e,'stsc'),co=find(v,st.s,st.e,'stco')||find(v,st.s,st.e,'co64');if(!sz||!sc||!co)continue;
+  const fix=v.getUint32(sz.s+4),cnt=v.getUint32(sz.s+8),size=i=>fix||v.getUint32(sz.s+12+i*4);
+  const nc=v.getUint32(co.s+4),c64=co.t==='co64',off=i=>c64?Number(v.getBigUint64(co.s+8+i*8)):v.getUint32(co.s+8+i*4);
+  const ns=v.getUint32(sc.s+4),runs=[];for(let i=0;i<ns;i++)runs.push([v.getUint32(sc.s+8+i*12)-1,v.getUint32(sc.s+12+i*12)]);
+  const parts=[];let si=0,tot=0;
+  for(let r=0;r<runs.length;r++){const end=r+1<runs.length?runs[r+1][0]:nc;for(let c=runs[r][0];c<end&&si<cnt;c++){let a=off(c),n=0;const k0=si;for(let j=0;j<runs[r][1]&&si<cnt;j++,si++)n+=size(si);
+    const raw=new Uint8Array(await blob.slice(a,a+n).arrayBuffer());let q=0;for(let k=k0;k<si;k++){const s=size(k),fl=s+7,hb=new Uint8Array(7);hb[0]=255;hb[1]=241;hb[2]=(ot-1)<<6|fi<<2|ch>>2;hb[3]=(ch&3)<<6|fl>>11;hb[4]=fl>>3&255;hb[5]=(fl&7)<<5|31;hb[6]=252;parts.push(hb,raw.subarray(q,q+s));q+=s;tot+=fl}}}
+  if(!tot)continue;
+  let b=await ctx.decodeAudioData(await new Blob(parts).arrayBuffer());
+  const el=path(v,tk,['edts','elst']);if(el){const ev=v.getUint8(el.s),mt=ev?Number(v.getBigInt64(el.s+16)):v.getInt32(el.s+12);const sk=Math.round(mt/scale*b.sampleRate);if(sk>0&&sk<b.length){const nb=ctx.createBuffer(b.numberOfChannels,b.length-sk,b.sampleRate);for(let c=0;c<b.numberOfChannels;c++)nb.copyToChannel(b.getChannelData(c).subarray(sk),c);b=nb}}
+  return b}
+ return null}
+window.isoAudio=isoAudio;
+const D0=decode;
+decode=function(m){if(m.id in BUF)return BUF[m.id];if(DECP[m.id])return DECP[m.id];
+ return DECP[m.id]=(async()=>{const bl=BLOB[m.id],oc=new OfflineAudioContext(2,48000,48000);let b=null;const iso=async()=>{try{return await isoAudio(bl,oc)}catch(e){console.warn('[sound] mp4 reader:',e);return null}};
+  try{if(MOB||bl.size>3e8)b=await iso();if(!b){try{b=await oc.decodeAudioData(await bl.arrayBuffer())}catch(e){b=null}}if(!b&&!(MOB||bl.size>3e8))b=await iso()}catch(e){b=null}
+  if(!b)console.warn('[sound] could not read the sound of',m.name);BUF[m.id]=b;delete DECP[m.id];return b})()};
+})();
+</script>
 </body>
 </html>
