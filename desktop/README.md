@@ -2,7 +2,7 @@
 
 `link-audio.js` adds page links (YouTube, SoundCloud and other sites yt-dlp supports) to **Import → From link…** in the Windows app. It is ported from CocoaTune's `ytdlp.js`: a private copy of yt-dlp is downloaded on first use and refreshed every few days, and the best audio stream is saved without re-encoding.
 
-To add it to the CocoaCut Windows app:
+`release-1.5.1.patch` applies steps 2 and 3 to the 1.5.1 Windows release's `main.js` and `preload.js` (`patch -p1` from the app folder), or apply the steps by hand:
 
 1. Copy `link-audio.js` next to the app's `main.js`.
 2. In `main.js`: `require('./link-audio').register();`
