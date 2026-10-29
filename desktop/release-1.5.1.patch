@@ -3,7 +3,7 @@
 @@ -27,0 +28 @@
 +  require('./link-audio').register();
 --- a/preload.js	2026-10-28 23:36:05.000000000 +0300
-+++ b/preload.js	2026-10-29 17:26:28.611497992 +0300
++++ b/preload.js	2026-10-29 17:43:37.111444149 +0300
 @@ -3 +3 @@
 -contextBridge.exposeInMainWorld('cocoaApp',{onClose:f=>ipcRenderer.on('cc-close',()=>f()),ack:()=>ipcRenderer.send('cc-ack'),quit:()=>ipcRenderer.send('cc-quit'),firstRun:()=>ipcRenderer.invoke('first-run'),firstDone:y=>ipcRenderer.invoke('first-done',!!y)});
-+contextBridge.exposeInMainWorld('cocoaApp',{onClose:f=>ipcRenderer.on('cc-close',()=>f()),ack:()=>ipcRenderer.send('cc-ack'),quit:()=>ipcRenderer.send('cc-quit'),firstRun:()=>ipcRenderer.invoke('first-run'),firstDone:y=>ipcRenderer.invoke('first-done',!!y),audioFromLink:(url,onProgress)=>{const CH='cocoacut-link-audio',id=Math.random().toString(36).slice(2);const h=(_,j,p)=>{if(j===id&&typeof onProgress==='function')onProgress(p)};ipcRenderer.on(CH+':progress',h);return ipcRenderer.invoke(CH,url,id).finally(()=>ipcRenderer.removeListener(CH+':progress',h))}});
++contextBridge.exposeInMainWorld('cocoaApp',{shell:2,onClose:f=>ipcRenderer.on('cc-close',()=>f()),ack:()=>ipcRenderer.send('cc-ack'),quit:()=>ipcRenderer.send('cc-quit'),firstRun:()=>ipcRenderer.invoke('first-run'),firstDone:y=>ipcRenderer.invoke('first-done',!!y),audioFromLink:(url,onProgress)=>{const CH='cocoacut-link-audio',id=Math.random().toString(36).slice(2);const h=(_,j,p)=>{if(j===id&&typeof onProgress==='function')onProgress(p)};ipcRenderer.on(CH+':progress',h);return ipcRenderer.invoke(CH,url,id).finally(()=>ipcRenderer.removeListener(CH+':progress',h))}});

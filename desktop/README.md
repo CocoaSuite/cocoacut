@@ -21,3 +21,7 @@
 The page detects `window.cocoaApp.audioFromLink` and uses it automatically; without it, direct file links, Google Drive and Yandex Disk links still work and page links show a clear message.
 
 Only save audio you have the right to use. Many sites, including YouTube, restrict downloading in their terms of service.
+
+## Reinstall notice
+
+`preload.js` sets `cocoaApp.shell` (now `2`; older apps don't set it). When a page update needs a new `main.js` or `preload.js`, raise `NEED` and `VER` in the reinstall-notice script at the end of `editor.html` and `shell` in `preload.js`. Older apps then show a "Reinstall needed" banner linking to the latest release.

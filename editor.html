@@ -3327,5 +3327,20 @@ async function run(){if(busy)return;let u;try{u=new URL(inp.value.trim())}catch(
 window.importFromLink=u=>{open();if(u){inp.value=u;run()}};
 })();
 </script>
+<script>
+// Reinstall notice: the Windows app reports its shell level in cocoaApp.shell (missing = 1).
+// Raise NEED when a page update relies on main.js/preload.js changes that only a full reinstall brings.
+(()=>{const A=window.cocoaApp,NEED=2,VER='1.5.2';if(!window.cocoaUpd||!A||(A.shell||1)>=NEED)return;
+const st=document.createElement('style');st.textContent=`#reinst{position:fixed;left:50%;top:52px;transform:translateX(-50%);z-index:200;display:flex;align-items:center;gap:14px;background:#2a1414;border:1px solid #e5484d;border-radius:10px;padding:12px 12px 12px 14px;width:min(640px,calc(100vw - 32px));font:13px var(--sans);color:var(--fg)}
+#reinst svg{flex:none}#reinst .t{display:flex;flex-direction:column;gap:3px;flex:1}#reinst b{font-size:14px}#reinst .t span{color:#e8c4c4;line-height:1.4}
+#reinst button{padding:8px 12px;border-radius:7px;font:inherit;cursor:pointer;white-space:nowrap}#reinst .go{border:0;background:#e5484d;color:#fff;font-weight:600}#reinst .no{border:1px solid #5a2a2a;background:none;color:#e8c4c4}`;document.head.appendChild(st);
+const d=document.createElement('div');d.id='reinst';d.setAttribute('role','alert');
+d.innerHTML=`<svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2 1 21h22L12 2z" fill="#e5484d"/><rect x="11" y="9" width="2" height="6" fill="#fff"/><rect x="11" y="17" width="2" height="2" fill="#fff"/></svg><div class="t"><b></b><span></span></div><button class="go"></button><button class="no"></button>`;
+d.querySelector('b').textContent=L('Reinstall needed: CocoaCut ','Нужна переустановка: CocoaCut ')+VER;
+d.querySelector('.t span').textContent=L('This is a large update, so it needs a full reinstall this time. It adds importing audio from YouTube and other sites.','Это большое обновление, поэтому в этот раз нужна полная переустановка. В нём появился импорт звука с YouTube и других сайтов.');
+const go=d.querySelector('.go'),no=d.querySelector('.no');go.textContent=L('Download now','Скачать');no.textContent=L('Later','Позже');
+go.onclick=()=>window.open('https://github.com/CocoaSuite/cocoacut/releases/latest','_blank');no.onclick=()=>d.remove();
+document.body.appendChild(d)})();
+</script>
 </body>
 </html>
