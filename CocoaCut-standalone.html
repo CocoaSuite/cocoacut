@@ -2932,7 +2932,7 @@ else if(!window.cocoaUpd)addEventListener('beforeunload',e=>{if(unsaved()){e.pre
 // Drive client IDs. The Windows app keeps its own keys in main.js.
 const DRIVE={g:{id:'602726288571-haf6c4oda6quguskh251vmmlt0aisp3v.apps.googleusercontent.com',key:'AIzaSyAQkHFd9DesAPGhLqyq79f5cTgyYPtcO9M',app:'602726288571'},y:{id:'dda9e87d28f2432993fb6108a9a2f0ed'}};
 (()=>{
-const DN={g:'Google Drive',y:L('Yandex Disk','Яндекс Диск')},T={},E=window.cocoaDrive;
+const DN={g:'Google Drive',y:L('Yandex Disk','Яндекс Диск')},T={},SW={},E=window.cocoaDrive;
 async function dFetch(url,o={}){
  if(E){const r=await E.fetch({url,method:o.method||'GET',headers:o.headers||{},body:o.body instanceof Blob?await o.body.arrayBuffer():o.body,prog:!!o.prog},o.prog);const b=r.body;
   return{ok:r.status<300,status:r.status,loc:r.loc,json:async()=>JSON.parse(new TextDecoder().decode(b)),blob:async()=>new Blob([b])}}
@@ -2941,8 +2941,8 @@ async function dFetch(url,o={}){
  const r=await fetch(url,o);return{ok:r.ok,status:r.status,loc:r.headers.get('location'),json:()=>r.json(),blob:()=>r.blob()}}
 const gis=()=>window.google?.accounts?.oauth2?Promise.resolve():new Promise((ok,no)=>{const s=document.createElement('script');s.src='https://accounts.google.com/gsi/client';s.onload=ok;s.onerror=()=>no(Error(L('No internet connection','Нет подключения к интернету')));document.head.appendChild(s)});
 async function webTok(p){
- if(p==='g'){await gis();return new Promise((ok,no)=>google.accounts.oauth2.initTokenClient({client_id:DRIVE.g.id,scope:'https://www.googleapis.com/auth/drive.file',callback:r=>r.access_token?ok({at:r.access_token,exp:Date.now()+r.expires_in*1e3}):no(Error(r.error||'denied')),error_callback:e=>no(Error(e.type||'denied'))}).requestAccessToken())}
- const w=open('https://oauth.yandex.ru/authorize?'+new URLSearchParams({response_type:'token',client_id:DRIVE.y.id,redirect_uri:location.origin+location.pathname}),'ydisk','width=520,height=640');
+ if(p==='g'){await gis();return new Promise((ok,no)=>google.accounts.oauth2.initTokenClient({client_id:DRIVE.g.id,scope:'https://www.googleapis.com/auth/drive.file',callback:r=>r.access_token?ok({at:r.access_token,exp:Date.now()+r.expires_in*1e3}):no(Error(r.error||'denied')),error_callback:e=>no(Error(e.type||'denied'))}).requestAccessToken(SW.g?{prompt:'select_account'}:undefined))}
+ const w=open('https://oauth.yandex.ru/authorize?'+new URLSearchParams({response_type:'token',client_id:DRIVE.y.id,redirect_uri:location.origin+location.pathname,...(SW.y?{force_confirm:'yes'}:{})}),'ydisk','width=520,height=640');
  return new Promise((ok,no)=>{const iv=setInterval(()=>{let h='';try{h=w.location.hash}catch(e){}if(w.closed&&!h){clearInterval(iv);no(Error('denied'))}if(h.includes('access_token')){clearInterval(iv);w.close();const q=new URLSearchParams(h.slice(1));ok({at:q.get('access_token'),exp:Date.now()+(+q.get('expires_in')||3e7)*1e3})}},300)})}
 async function tok(p,force){
  if(!DRIVE[p].id)throw Error(L('Cloud isn’t set up in this build yet.','Облако ещё не настроено в этой сборке.'));
@@ -3047,7 +3047,7 @@ const msg=t=>{const m=q('.msg');if(m)m.textContent=t};
 const bar=(t,v)=>{const b=q('.pb');if(!b)return;b.hidden=v==null;b.firstChild.style.width=(v||0)*100+'%';msg(v==null?t:t+' '+Math.round(v*100)+'%')};
 const fail=e=>bar(e.message||String(e));
 async function ui(){
- M.innerHTML=`<div class="box" role="dialog" aria-modal="true"><h3 style="margin:0;font-size:15px"></h3><div class="tabs"></div><div class="fd"><span></span><button data-f></button><button data-r hidden>${L('Reset','Сбросить')}</button></div><p class="msg"></p><div class="pb" hidden><i></i></div><ul></ul>${mode==='save'?'<div class="row"><input><button class="pri" data-s>'+L('Upload','Загрузить')+'</button></div>':''}<div class="row" style="justify-content:flex-end"><button data-b hidden></button><span style="flex:1"></span><button data-x>${L('Close','Закрыть')}</button></div></div>`;
+ M.innerHTML=`<div class="box" role="dialog" aria-modal="true"><h3 style="margin:0;font-size:15px"></h3><div class="tabs"></div><div class="fd"><span></span><button data-f></button><button data-r hidden>${L('Reset','Сбросить')}</button></div><p class="msg"></p><div class="pb" hidden><i></i></div><ul></ul>${mode==='save'?'<div class="row"><input><button class="pri" data-s>'+L('Upload','Загрузить')+'</button></div>':''}<div class="row" style="justify-content:flex-end"><button data-b hidden></button><span style="flex:1"></span><button data-o hidden></button><button data-x>${L('Close','Закрыть')}</button></div></div>`;
  q('h3').textContent=ybr?L('Choose a folder','Выбор папки'):mode==='save'?L('Upload to cloud','Загрузить в облако'):L('Open from cloud','Открыть из облака');
  for(const p of['g','y']){const b=document.createElement('button');b.textContent=DN[p];if(p===pv)b.className='on';b.onclick=()=>{pv=p;ybr=null;try{localStorage.setItem('cc-drv',p)}catch(e){}ui()};q('.tabs').appendChild(b)}
  q('[data-x]').onclick=()=>{M.hidden=true;ybr=null};
@@ -3057,14 +3057,18 @@ async function ui(){
  fb.textContent=L('Change…','Изменить…');rb.hidden=!f;rb.onclick=()=>{setFold(pv,null);ui()};
  fb.onclick=async()=>{if(pv==='y'){ybr='disk:/';return ui()}try{const r=(await gPick('folder')).find(x=>x.mimeType===GF);if(r){setFold('g',{id:r.id,name:r.name});ui()}}catch(e){fail(e)}};
  const bb=q('[data-b]');if(pv==='g'){bb.hidden=false;bb.textContent=L('Find in Google Drive…','Найти в Google Диске…');bb.onclick=async()=>{try{const r=(await gPick('file')).filter(x=>/\.ccut$/i.test(x.name));if(!r.length)return;if(mode==='open')return get({id:r[0].id,name:r[0].name});load()}catch(e){fail(e)}}}
- const inp=q('input');if(inp)inp.value=P.cloud?.name||safeName()+'.ccut';const sb=q('[data-s]');if(sb)sb.onclick=()=>save(inp.value);load()}
+ const inp=q('input');if(inp)inp.value=P.cloud?.name||safeName()+'.ccut';const sb=q('[data-s]');if(sb)sb.onclick=()=>save(inp.value);if(!T[pv])T[pv]=await idbGet('kv','drv-'+pv).catch(()=>null);outBtn();if(OUT[pv]&&!T[pv])return msg(L('Signed out of ','Вы вышли из ')+DN[pv]+'.');load()}
+const OUT={};
+function outBtn(){const ob=q('[data-o]');if(!ob)return;const p=pv;if(T[p]){ob.hidden=false;ob.textContent=L('Sign out','Выйти');ob.onclick=()=>logout(p)}else if(OUT[p]){ob.hidden=false;ob.textContent=L('Sign in','Войти');ob.onclick=()=>{OUT[p]=false;ob.hidden=true;load()}}else ob.hidden=true}
+async function logout(p){const t=T[p]||await idbGet('kv','drv-'+p).catch(()=>null);delete T[p];OUT[p]=SW[p]=true;await idbDel('kv','drv-'+p).catch(()=>{});
+ if(p==='g'&&t)fetch('https://oauth2.googleapis.com/revoke?token='+encodeURIComponent(t.rt||t.at),{method:'POST'}).catch(()=>{});ui()}
 async function yBrowse(){const fs=q('.fd span'),fb=q('[data-f]'),ul=q('ul');fs.textContent=ybr.replace(/^disk:/,'')||'/';fb.textContent=L('Use this folder','Выбрать эту папку');
  fb.onclick=()=>{setFold('y',ybr==='disk:/'?{id:'disk:/',name:L('Disk root','Корень Диска')}:{id:ybr,name:ybr.split('/').pop()});ybr=null;ui()};
  msg(L('Loading…','Загрузка…'));try{const ds=await D.y.dirs(ybr);msg(ds.length?L('Shared folders show up here once you accept the invite.','Общие папки появятся здесь, когда вы примете приглашение.'):L('No folders here.','Тут нет папок.'));
   const add=(n,go)=>{const li=document.createElement('li');li.textContent=n;li.onclick=()=>{ybr=go;ui()};ul.appendChild(li)};
   if(ybr!=='disk:/')add('← '+L('Back','Назад'),ybr.replace(/\/[^/]+\/?$/,'')||'disk:/');for(const d of ds)if(d.name!==MF)add(d.name,d.id)}catch(e){fail(e)}}
 async function load(){const ul=q('ul'),p=pv;msg(L('Connecting…','Подключение…'));
- try{files=await D[p].list();if(p!==pv||ybr!==null)return;ul.innerHTML='';msg(files.length?'':L('No CocoaCut projects here yet.','Здесь пока нет проектов CocoaCut.')+(p==='g'&&mode==='open'?' '+L('If a teammate added one, use “Find in Google Drive”.','Если проект добавил коллега, нажмите «Найти в Google Диске».'):''));
+ try{files=await D[p].list();if(p!==pv||ybr!==null)return;outBtn();ul.innerHTML='';msg(files.length?'':L('No CocoaCut projects here yet.','Здесь пока нет проектов CocoaCut.')+(p==='g'&&mode==='open'?' '+L('If a teammate added one, use “Find in Google Drive”.','Если проект добавил коллега, нажмите «Найти в Google Диске».'):''));
   for(const f of files){const li=document.createElement('li');li.innerHTML='<span></span><small></small>';li.firstChild.textContent=f.name;li.lastChild.textContent=(f.by?f.by+' · ':'')+(f.t?new Date(f.t).toLocaleDateString()+' · ':'')+kb(f.size);
    li.onclick=()=>mode==='save'?(q('input').value=f.name):get(f);ul.appendChild(li)}}
  catch(e){if(p===pv)msg(L('Couldn’t reach ','Не удалось подключиться к ')+DN[p]+': '+e.message)}}
